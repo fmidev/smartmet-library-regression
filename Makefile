@@ -1,4 +1,7 @@
-LIB = regression
+SUBNAME = regression
+LIB = smartmet-$(SUBNAME)
+SPEC = smartmet-library-$(SUBNAME)
+INCDIR = smartmet/$(SUBNAME)
 
 MAINFLAGS = -Wall -W -Wno-unused-parameter
 
@@ -40,14 +43,13 @@ objdir = obj
 # rpm variables
 
 rpmsourcedir=/tmp/$(shell whoami)/rpmbuild
-rpmerr = "There's no spec file ($(LIB).spec). RPM wasn't created. Please make a spec file or copy and rename it into $(LIB).spec"
 
-rpmversion := $(shell grep "^Version:" $(LIB).spec  | cut -d\  -f 2 | tr . _)
-rpmrelease := $(shell grep "^Release:" $(LIB).spec  | cut -d\  -f 2 | tr . _)
+rpmversion := $(shell grep "^Version:" $(SPEC).spec  | cut -d\  -f 2 | tr . _)
+rpmrelease := $(shell grep "^Release:" $(SPEC).spec  | cut -d\  -f 2 | tr . _)
 
 # What to install
 
-LIBFILE = libsmartmet_$(LIB).a
+LIBFILE = libsmartmet-$(SUBNAME).a
 
 # How to install
 
@@ -86,14 +88,10 @@ clean:
 	rm -f $(LIBFILE) $(OBJFILES) *~ source/*~ include/*~
 
 install:
-	@mkdir -p $(includedir)/$(LIB)
+	@mkdir -p $(includedir)/$(INCDIR)
 	@list='$(HDRS)'; \
 	for hdr in $$list; do \
-	  if [ include/$$hdr -nt $(includedir)/$(LIB)/$$hdr ]; \
-	  then \
-	    echo $(INSTALL_DATA) include/$$hdr $(includedir)/$(LIB)/$$hdr; \
-	  fi; \
-	  $(INSTALL_DATA) include/$$hdr $(includedir)/$(LIB)/$$hdr; \
+	  $(INSTALL_DATA) include/$$hdr $(includedir)/$(INCDIR)/$$hdr; \
 	done
 	@mkdir -p $(libdir)
 	$(INSTALL_DATA) $(LIBFILE) $(libdir)/$(LIBFILE)
@@ -101,36 +99,29 @@ install:
 test:
 	cd test && make test
 
-html::
-	mkdir -p /data/local/html/lib/$(LIB)
-	doxygen $(LIB).dox
-
 objdir:
 	@mkdir -p $(objdir)
 
 rpm: clean
-	if [ -e $(LIB).spec ]; \
+	@if [ -e $(SPEC).spec ]; \
 	then \
 	  mkdir -p $(rpmsourcedir) ; \
-	  tar -C ../ -cf $(rpmsourcedir)/libsmartmet-$(LIB).tar $(LIB) ; \
-	  gzip -f $(rpmsourcedir)/libsmartmet-$(LIB).tar ; \
-	  rpmbuild -ta $(rpmsourcedir)/libsmartmet-$(LIB).tar.gz ; \
-	  rm -f $(rpmsourcedir)/libsmartmet-$(LIB).tar.gz ; \
+	  tar -C ../ -cf $(rpmsourcedir)/$(SPEC).tar $(SUBNAME) ; \
+	  gzip -f $(rpmsourcedir)/$(SPEC).tar ; \
+	  rpmbuild -ta $(rpmsourcedir)/$(SPEC).tar.gz ; \
+	  rm -f $(rpmsourcedir)/$(SPEC).tar.gz ; \
 	else \
-	  echo $(rpmerr); \
+	  echo $(SPEC).spec file missing; \
 	fi;
-
-tag:
-	cvs -f tag 'libsmartmet_$(LIB)_$(rpmversion)-$(rpmrelease)' .
 
 headertest:
 	@echo "Checking self-sufficiency of each header:"
 	@echo
 	@for hdr in $(HDRS); do \
 	echo $$hdr; \
-	echo "#include \"$$hdr\"" > /tmp/$(LIB).cpp; \
-	echo "int main() { return 0; }" >> /tmp/$(LIB).cpp; \
-	$(CC) $(CFLAGS) $(INCLUDES) -o /dev/null /tmp/$(LIB).cpp $(LIBS); \
+	echo "#include \"$$hdr\"" > /tmp/$(SUBNAME).cpp; \
+	echo "int main() { return 0; }" >> /tmp/$(SUBNAME).cpp; \
+	$(CC) $(CFLAGS) $(INCLUDES) -o /dev/null /tmp/$(SUBNAME).cpp $(LIBS); \
 	done
 
 .SUFFIXES: $(SUFFIXES) .cpp
