@@ -103,11 +103,10 @@ objdir:
 	@mkdir -p $(objdir)
 
 rpm: clean
-	@if [ -e $(SPEC).spec ]; \
+	if [ -e $(SPEC).spec ]; \
 	then \
 	  mkdir -p $(rpmsourcedir) ; \
-	  tar -C ../ -cf $(rpmsourcedir)/$(SPEC).tar $(SUBNAME) ; \
-	  gzip -f $(rpmsourcedir)/$(SPEC).tar ; \
+	  tar -czvf $(rpmsourcedir)/$(SPEC).tar.gz --transform "s,^,$(SPEC)/," * ; \
 	  rpmbuild -ta $(rpmsourcedir)/$(SPEC).tar.gz ; \
 	  rm -f $(rpmsourcedir)/$(SPEC).tar.gz ; \
 	else \
