@@ -11,6 +11,7 @@ URL: https://github.com/fmidev/smartmet-library-regression
 Source0: %{name}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot-%(%{__id_u} -n)
 Provides: %{LIBNAME}
+BuildRequires: rpm-build
 BuildRequires: make
 BuildRequires: imake
 Obsoletes: libsmartmet-regression < 16.12.20
