@@ -13,7 +13,8 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot-%(%{__id_u} -n)
 Provides: %{LIBNAME}
 BuildRequires: rpm-build
 BuildRequires: make
-BuildRequires: imake
+#TestRequires: gcc-c++
+#TestRequires: make
 Obsoletes: libsmartmet-regression < 16.12.20
 Obsoletes: libsmartmet-regression-debuginfo < 16.12.20
 
