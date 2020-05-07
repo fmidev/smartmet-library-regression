@@ -51,7 +51,6 @@ INSTALL_DATA = install -m 664
 
 # Compilation directories
 
-vpath %.cpp source
 vpath %.h include
 vpath %.o $(objdir)
 
