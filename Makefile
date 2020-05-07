@@ -80,19 +80,19 @@ clean:
 	rm -f $(LIBFILE) $(OBJFILES) *~ source/*~ include/*~
 
 install:
-	@mkdir -p $(includedir)/$(INCDIR)
-	@list='$(HDRS)'; \
+	mkdir -p $(includedir)/$(INCDIR)
+	list='$(HDRS)'; \
 	for hdr in $$list; do \
 	  $(INSTALL_DATA) include/$$hdr $(includedir)/$(INCDIR)/$$hdr; \
 	done
-	@mkdir -p $(libdir)
+	mkdir -p $(libdir)
 	$(INSTALL_DATA) $(LIBFILE) $(libdir)/$(LIBFILE)
 
 test:
 	cd test && make test
 
 objdir:
-	@mkdir -p $(objdir)
+	mkdir -p $(objdir)
 
 rpm: clean $(SPEC).spec
 	rm -f $(SPEC).tar.gz # Clean a possible leftover from previous attempt
