@@ -38,11 +38,6 @@ endif
 
 bindir = $(PREFIX)/bin
 includedir = $(PREFIX)/include
-objdir = obj
-
-# What to install
-
-LIBFILE = libsmartmet-$(SUBNAME).a
 
 # How to install
 
@@ -52,15 +47,10 @@ INSTALL_DATA = install -m 664
 # Compilation directories
 
 vpath %.h include
-vpath %.o $(objdir)
 
 # The files to be compiled
 
-SRCS = $(patsubst source/%,%,$(wildcard source/*.cpp))
 HDRS = $(patsubst include/%,%,$(wildcard include/*.h))
-OBJS = $(SRCS:%.cpp=%.o)
-
-OBJFILES = $(OBJS:%.o=obj/%.o)
 
 INCLUDES := -Iinclude $(INCLUDES)
 
@@ -68,16 +58,13 @@ INCLUDES := -Iinclude $(INCLUDES)
 
 # The rules
 
-all: objdir $(LIBFILE)
+all: 
 debug: all
 release: all
 profile: all
 
-$(LIBFILE): $(OBJS)
-	$(AR) $(ARFLAGS) $(LIBFILE) $(OBJFILES)
-
 clean:
-	rm -f $(LIBFILE) $(OBJFILES) *~ source/*~ include/*~
+	rm -f *~ source/*~ include/*~
 
 install:
 	mkdir -p $(includedir)/$(INCDIR)
@@ -86,13 +73,9 @@ install:
 	  $(INSTALL_DATA) include/$$hdr $(includedir)/$(INCDIR)/$$hdr; \
 	done
 	mkdir -p $(libdir)
-	$(INSTALL_DATA) $(LIBFILE) $(libdir)/$(LIBFILE)
 
 test:
 	cd test && make test
-
-objdir:
-	mkdir -p $(objdir)
 
 rpm: clean $(SPEC).spec
 	rm -f $(SPEC).tar.gz # Clean a possible leftover from previous attempt
@@ -109,9 +92,3 @@ headertest:
 	echo "int main() { return 0; }" >> /tmp/$(SUBNAME).cpp; \
 	$(CC) $(CFLAGS) $(INCLUDES) -o /dev/null /tmp/$(SUBNAME).cpp $(LIBS); \
 	done
-
-.SUFFIXES: $(SUFFIXES) .cpp
-
-.cpp.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c -o $(objdir)/$@ $<
-

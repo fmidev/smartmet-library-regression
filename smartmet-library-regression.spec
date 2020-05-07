@@ -3,7 +3,7 @@
 %define SPECNAME smartmet-library-%{DIRNAME}
 Summary: regression test library
 Name: %{SPECNAME}
-Version: 16.12.20
+Version: 20.5.7
 Release: 1%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
@@ -38,9 +38,11 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,0775)
 %{_includedir}/smartmet/%{DIRNAME}
-%{_libdir}/libsmartmet-%{DIRNAME}.a
 
 %changelog
+* Thu May  7 2020 Mika Heiskanen <mika.heiskanen@fmi.fi> - 20.5.7-1.fmi
+- Removed redundant compilation phases
+
 * Tue Dec 20 2016 Mika Heiskanen <mika.heiskanen@fmi.fi> - 16.12.20-1.fmi
 - Switched to open source naming conventions
 
