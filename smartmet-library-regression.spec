@@ -1,6 +1,7 @@
 %define DIRNAME regression
 %define LIBNAME smartmet-%{DIRNAME}
 %define SPECNAME smartmet-library-%{DIRNAME}
+%define debug_package %{nil}
 Summary: regression test library
 Name: %{SPECNAME}
 Version: 20.5.7
