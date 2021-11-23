@@ -27,7 +27,7 @@ class failed {
 public:
 	failed(const char* m, const char* f, unsigned int l) : msg(m), fname(f), linen(l) {}
 	failed(const std::string & m, const char* f, unsigned int l) : msg(m), fname(f), linen(l) {}
-  	
+
 	unsigned int line() const { return linen; }
 	const char* file() const { return fname; }
 	const char* what() const { return msg.c_str(); }
@@ -60,50 +60,50 @@ struct passed {};
 				uex(); ++fail; \
 			} \
 		}
-		
+
 class tests {
 protected:
 	tests() : out(std::cout), fail(0), pass(0), fill('.'), pad(50) {}
 	tests(char f, unsigned short p) : out(std::cout), fail(0), pass(0), fill(f), pad(p) {}
 	tests(std::ostream& o, char f, unsigned short p) : out(o), fail(0), pass(0), fill(f), pad(p) {}
-	
+
 	std::ostream& out;
-	
+
 	unsigned int fail;
 	unsigned int pass;
-	
+
 	char fill;
-	unsigned short pad;
-	
+        unsigned short pad;
+
 	virtual void test() = 0;
-	
+
 	virtual const char* error_message_prefix() const {
 		return ": ";
 	}
 	virtual const char* fail_message() const {
 		return "failed";
 	}
-	
+
 	virtual void passed(::tframe::passed& e) {
 		out << "passed\n";
 	}
 	virtual void not_implemented(::tframe::not_implemented& e) {
 		out << "not implemented\n";
 	}
-	
+
 	virtual void failed(::tframe::failed& e) {
-		out << fail_message() << error_message_prefix() << 
-				e.what() << " - " << e.file() << ": " << e.line() << "\n";	
+		out << fail_message() << error_message_prefix() <<
+				e.what() << " - " << e.file() << ": " << e.line() << "\n";
 	}
 	virtual void uexstd(std::exception& e) {
 		out << fail_message() << error_message_prefix() <<
 				 "unexpected exception: " << e.what() << "\n";
 	}
 	virtual void uex() {
-		out << fail_message() << error_message_prefix() << 
+		out << fail_message() << error_message_prefix() <<
 				"unexpected exception: unknown exception\n";
 	}
-		
+
 	virtual void error_in_test() {
 		std::cout << "error in test (ending macro missing?)";
 	}
@@ -111,16 +111,17 @@ protected:
 	virtual void show_total() {
 		std::stringstream str;
 		str << "tests: " << pass << " succeeded, " << fail << " failed";
-		out << str.str() << std::setw(pad-str.str().size()) << std::setfill(fill) << '.'; 
+		out << str.str() << std::setw(int(pad-str.str().size()))
+                    << std::setfill(fill) << '.';
 		if(pass && !fail) {
 			out << "passed\n";
 		} else {
 			out << fail_message() << "\n";
 		}
 	}
-public:	
+public:
 	virtual ~tests() {}
-	
+
 	int run() {
 		test();
 		out << "\n";
@@ -130,6 +131,5 @@ public:
 };
 
 } //end of namespace
-										
-#endif
 
+#endif

@@ -3,4 +3,4 @@ test: TestRegression
 	./TestRegression
 
 TestRegression: TestRegression.cpp
-	$(CXX) -I/usr/include/smartmet -Wall -o TestRegression TestRegression.cpp
+	$(CXX) -I.. -Wall -o TestRegression TestRegression.cpp
