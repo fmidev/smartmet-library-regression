@@ -22,6 +22,8 @@ profile: all
 
 clean:
 	rm -f *~ source/*~ include/*~
+	$(MAKE) -C test clean
+	rm -f $(SPEC).tar.gz
 
 install:
 	mkdir -p $(includedir)/$(INCDIR)
