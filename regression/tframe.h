@@ -45,6 +45,7 @@ struct passed {};
 		{ \
 			out << #name << std::setw(pad-std::string(#name).size()) << std::setfill(fill) << '.'; \
 			try { \
+				++total; \
 				name(); \
 				error_in_test(); \
 				std::cout << "\n"; \
@@ -53,7 +54,7 @@ struct passed {};
 			} catch(::tframe::failed& e) { \
 				failed(e);  ++fail; \
 			} catch(::tframe::not_implemented& e) { \
-				not_implemented(e); \
+				not_implemented(e); ++nImpl; \
 			} catch(std::exception& e) { \
 				uexstd(e); ++fail; \
 			} catch(...) { \
@@ -63,17 +64,19 @@ struct passed {};
 
 class tests {
 protected:
-	tests() : out(std::cout), fail(0), pass(0), fill('.'), pad(50) {}
+	tests() : out(std::cout), fill('.'), pad(50) {};
 	tests(char f, unsigned short p) : out(std::cout), fail(0), pass(0), fill(f), pad(p) {}
 	tests(std::ostream& o, char f, unsigned short p) : out(o), fail(0), pass(0), fill(f), pad(p) {}
 
 	std::ostream& out;
 
-	unsigned int fail;
-	unsigned int pass;
+	unsigned int total = 0;
+	unsigned int fail = 0;
+	unsigned int pass = 0;
+	unsigned int nImpl = 0;
 
 	char fill;
-        unsigned short pad;
+    unsigned short pad;
 
 	virtual void test() = 0;
 
@@ -110,10 +113,11 @@ protected:
 
 	virtual void show_total() {
 		std::stringstream str;
-		str << "tests: " << pass << " succeeded, " << fail << " failed";
+		str << "tests: "
+			<< pass << " succeeded, " << fail << " failed";
 		out << str.str() << std::setw(int(pad-str.str().size()))
                     << std::setfill(fill) << '.';
-		if(pass && !fail) {
+		if (total == pass + nImpl && !fail) {
 			out << "passed\n";
 		} else {
 			out << fail_message() << "\n";
