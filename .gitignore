@@ -6,3 +6,4 @@ dist/
 /.vscode
 /libsmartmet-regression.so
 /obj
+/smartimagediff_psnr
