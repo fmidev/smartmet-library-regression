@@ -20,6 +20,7 @@ BuildRequires: smartmet-utils-devel >= 21.11.4
 #TestRequires: gcc-c++
 #TestRequires: make
 #TestRequires: smartmet-utils-devel >= 21.11.4
+#TestRequires: ImageMagick-c++-devel
 Obsoletes: libsmartmet-regression < 16.12.20
 Obsoletes: libsmartmet-regression-debuginfo < 16.12.20
 
