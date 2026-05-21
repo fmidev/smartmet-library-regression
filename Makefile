@@ -3,6 +3,8 @@ LIB = smartmet-$(SUBNAME)
 SPEC = smartmet-library-$(SUBNAME)
 INCDIR = smartmet/$(SUBNAME)
 
+REQUIRES = filesystem
+
 include $(shell smartbuildcfg --prefix)/share/smartmet/devel/makefile.inc
 
 MAGICK_CFLAGS := $(shell pkg-config --cflags Magick++)
@@ -28,7 +30,7 @@ release: all
 profile: all
 
 $(LIBFILE): $(OBJS)
-	$(CXX) $(LDFLAGS) -shared -rdynamic -o $(LIBFILE) $(OBJS) $(MAGICK_LIBS)
+	$(CXX) $(LDFLAGS) -shared -rdynamic $(REQUIRED_LIBS) -o $(LIBFILE) $(OBJS) $(MAGICK_LIBS)
 	@echo Checking $(LIBFILE) for unresolved references
 	@if ldd -r $(LIBFILE) 2>&1 | c++filt | grep ^undefined\ symbol; \
 	then \
@@ -37,7 +39,7 @@ $(LIBFILE): $(OBJS)
 	fi
 
 $(PROG): main/$(PROG).cpp $(LIBFILE)
-	$(CXX) $(CFLAGS) $(INCLUDES) -o $@ $< -L. -l$(LIB) '-Wl,-rpath,$$ORIGIN' $(MAGICK_LIBS)
+	$(CXX) $(CFLAGS) $(INCLUDES) -o $@ $< -L. -l$(LIB) $(REQUIRED_LIBS) '-Wl,-rpath,$$ORIGIN' $(MAGICK_LIBS)
 
 clean:
 	rm -f *~ source/*~ include/*~ $(LIBFILE) $(PROG)
