@@ -14,6 +14,8 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot-%(%{__id_u} -n)
 Provides: %{LIBNAME}
 BuildRequires: rpm-build
 BuildRequires: make
+BuildRequires: gcc-c++
+BuildRequires: ImageMagick-c++-devel
 BuildRequires: smartmet-utils-devel >= 21.11.4
 #TestRequires: gcc-c++
 #TestRequires: make
@@ -41,6 +43,8 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,0775)
 %{_includedir}/smartmet/%{DIRNAME}
+%{_libdir}/libsmartmet-regression.so
+%{_bindir}/smartimagediff_psnr
 
 %changelog
 * Mon May  5 2025 Andris Pavēnis <andris.pavenis@fmi.fi> 25.5.5-1.fmi
