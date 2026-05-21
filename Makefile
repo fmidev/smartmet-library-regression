@@ -10,6 +10,8 @@ include $(shell smartbuildcfg --prefix)/share/smartmet/devel/makefile.inc
 MAGICK_CFLAGS := $(shell pkg-config --cflags Magick++)
 MAGICK_LIBS := $(shell pkg-config --libs Magick++)
 
+CFLAGS += $(MAGICK_CFLAGS)
+
 LIBFILE = lib$(LIB).so
 PROG = smartimagediff_psnr
 
