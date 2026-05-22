@@ -4,7 +4,7 @@
 %define debug_package %{nil}
 Summary: regression test library
 Name: %{SPECNAME}
-Version: 25.5.5
+Version: 26.5.22
 Release: 1%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
@@ -48,6 +48,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/smartimagediff_psnr
 
 %changelog
+* Fri May 22 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.5.22-1.fmi
+- Add application smartimagediif_psnr and library libsmartmet-regreassion
+
 * Mon May  5 2025 Andris Pavēnis <andris.pavenis@fmi.fi> 25.5.5-1.fmi
 - Fix misleading message and add real own tests
 
