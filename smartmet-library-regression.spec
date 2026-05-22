@@ -50,7 +50,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 * Fri May 22 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.5.22-1.fmi
-- Add application smartimagediif_psnr and library libsmartmet-regreassion
+- Add application smartimagediif_psnr and library libsmartmet-regression
 
 * Mon May  5 2025 Andris Pavēnis <andris.pavenis@fmi.fi> 25.5.5-1.fmi
 - Fix misleading message and add real own tests
