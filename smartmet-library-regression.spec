@@ -46,6 +46,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_includedir}/smartmet/%{DIRNAME}
 %{_libdir}/libsmartmet-regression.so
 %{_bindir}/smartimagediff_psnr
+%{_bindir}/smartpngdiff
 
 %changelog
 * Fri May 22 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.5.22-1.fmi

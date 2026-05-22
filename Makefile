@@ -59,6 +59,7 @@ install:
 	$(INSTALL_PROG) $(LIBFILE) $(libdir)/$(LIBFILE)
 	mkdir -p $(bindir)
 	$(INSTALL_PROG) $(PROG) $(bindir)/$(PROG)
+	$(INSTALL_PROG) smartpngdiff $(bindir)/smartpngdiff
 
 test: $(PROG) $(LIBFILE)
 	$(MAKE) -C test test
