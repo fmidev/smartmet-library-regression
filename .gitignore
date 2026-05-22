@@ -3,3 +3,7 @@ dist/
 /.project
 /.settings/
 /.cproject
+/.vscode
+/libsmartmet-regression.so
+/obj
+/smartimagediff_psnr
