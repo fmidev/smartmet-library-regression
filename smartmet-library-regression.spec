@@ -5,7 +5,7 @@
 Summary: regression test library
 Name: %{SPECNAME}
 Version: 26.5.22
-Release: 1%{?dist}.fmi
+Release: 2%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
 URL: https://github.com/fmidev/smartmet-library-regression
@@ -49,6 +49,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/smartpngdiff
 
 %changelog
+* Fri May 22 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.5.22-2.fmi
+- Import script smartimgdiff
+
 * Fri May 22 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.5.22-1.fmi
 - Add application smartimagediif_psnr and library libsmartmet-regression
 
