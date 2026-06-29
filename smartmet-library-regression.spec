@@ -4,8 +4,8 @@
 %define debug_package %{nil}
 Summary: regression test library
 Name: %{SPECNAME}
-Version: 26.5.22
-Release: 2%{?dist}.fmi
+Version: 26.6.29
+Release: 1%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
 URL: https://github.com/fmidev/smartmet-library-regression
@@ -46,9 +46,13 @@ rm -rf $RPM_BUILD_ROOT
 %{_includedir}/smartmet/%{DIRNAME}
 %{_libdir}/libsmartmet-regression.so
 %{_bindir}/smartimagediff_psnr
+%{_bindir}/smartimagediff
 %{_bindir}/smartpngdiff
 
 %changelog
+* Mon Jun 29 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> 26.6.29-1.fmi
+- Add smartimagediff: structural, anti-aliasing-aware image regression check
+
 * Fri May 22 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.5.22-2.fmi
 - Import script smartimgdiff
 

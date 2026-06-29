@@ -7,3 +7,5 @@ dist/
 /libsmartmet-regression.so
 /obj
 /smartimagediff_psnr
+/smartimagediff
+/compile_commands.json

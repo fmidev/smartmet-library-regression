@@ -13,7 +13,7 @@ MAGICK_LIBS := $(shell pkg-config --libs Magick++)
 CFLAGS += $(MAGICK_CFLAGS)
 
 LIBFILE = lib$(LIB).so
-PROG = smartimagediff_psnr
+PROGS = smartimagediff_psnr smartimagediff
 
 HDRS = $(patsubst regression/%,%,$(wildcard regression/*.h))
 
@@ -26,7 +26,7 @@ INCLUDES := -Iregression $(INCLUDES) $(MAGICK_CFLAGS)
 
 # The rules
 
-all: objdir $(LIBFILE) $(PROG)
+all: objdir $(LIBFILE) $(PROGS)
 debug: all
 release: all
 profile: all
@@ -40,11 +40,11 @@ $(LIBFILE): $(OBJS)
 		exit 1; \
 	fi
 
-$(PROG): main/$(PROG).cpp $(LIBFILE)
+$(PROGS): %: main/%.cpp $(LIBFILE)
 	$(CXX) $(CFLAGS) $(INCLUDES) -o $@ $< -L. -l$(LIB) $(REQUIRED_LIBS) '-Wl,-rpath,$$ORIGIN' $(MAGICK_LIBS)
 
 clean:
-	rm -f *~ source/*~ include/*~ $(LIBFILE) $(PROG)
+	rm -f *~ source/*~ include/*~ $(LIBFILE) $(PROGS)
 	$(MAKE) -C test clean
 	rm -f $(SPEC).tar.gz
 	rm -rf $(objdir)
@@ -58,10 +58,12 @@ install:
 	mkdir -p $(libdir)
 	$(INSTALL_PROG) $(LIBFILE) $(libdir)/$(LIBFILE)
 	mkdir -p $(bindir)
-	$(INSTALL_PROG) $(PROG) $(bindir)/$(PROG)
+	for prog in $(PROGS); do \
+	  $(INSTALL_PROG) $$prog $(bindir)/$$prog; \
+	done
 	$(INSTALL_PROG) smartpngdiff $(bindir)/smartpngdiff
 
-test: $(PROG) $(LIBFILE)
+test: $(PROGS) $(LIBFILE)
 	$(MAKE) -C test test
 
 rpm: clean $(SPEC).spec
