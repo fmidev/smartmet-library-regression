@@ -37,10 +37,49 @@ if [ \! -f $PNG ]; then
     exit -1
 fi
 
-# Create a visual difference file
+# Locate the comparison tools next to this script, falling back to PATH.
+here=$(dirname $0)
+smartimagediff_psnr=$here/smartimagediff_psnr
+[ -x "$smartimagediff_psnr" ] || smartimagediff_psnr=smartimagediff_psnr
+smartimagediff=$here/smartimagediff
+[ -x "$smartimagediff" ] || smartimagediff=smartimagediff
+
+# Create the visual difference file.
 #
-composite $OK_PNG $PNG -compose DIFFERENCE png:- | \
-    $CONVERT - -contrast-stretch 0 $DIFF_PNG
+# Shadow mode: PSNR (below) stays the headline verdict and exit code, but when
+# the structural, anti-aliasing-aware comparator is available it writes the
+# diff image -- the expected frame faded to faint grayscale with the real
+# changes painted red and boxed, which lands the eye on a regression instead of
+# the equalized full-frame of edge noise the DIFFERENCE+contrast-stretch
+# produced. Its verdict is captured for the [sid:...] tag and the
+# SHADOW-DISAGREE marker added to the verdict lines below.
+SID_LABEL=SKIP
+SID_INFO=""
+SID_PASS=""
+if command -v "$smartimagediff" >/dev/null 2>&1; then
+    SID_OUT=$("$smartimagediff" $OK_PNG $PNG $DIFF_PNG 2>&1)
+    SID_RC=$?
+    SID_INFO=$(echo "$SID_OUT" | head -1)
+    case $SID_RC in
+        0) SID_LABEL=OK;    SID_PASS=1 ;;
+        1) SID_LABEL=FAIL;  SID_PASS=0 ;;
+        *) SID_LABEL=ERROR             ;;
+    esac
+else
+    # Legacy fallback: DIFFERENCE composite, contrast-stretched.
+    composite $OK_PNG $PNG -compose DIFFERENCE png:- | \
+        $CONVERT - -contrast-stretch 0 $DIFF_PNG
+fi
+
+# Tag appended to every verdict line, plus a disagreement marker printed when
+# PSNR and structural reach opposite pass/fail conclusions (the greppable
+# signal for comparing the two on a real test run). $1 = 1 if PSNR passes.
+sid_tag="[sid:$SID_LABEL${SID_INFO:+ $SID_INFO}]"
+disagree() {
+    [ "$SID_LABEL" != SKIP ] && [ "$SID_LABEL" != ERROR ] && \
+        [ -n "$SID_PASS" ] && [ "$SID_PASS" != "$1" ] && \
+        printf '%s' "${COL_BOLD}SHADOW-DISAGREE${COL_OFF} "
+}
 
 # Get measurement of the difference
 #
@@ -83,33 +122,29 @@ composite $OK_PNG $PNG -compose DIFFERENCE png:- | \
 # HACK: A real hack. Did not get the above code to work.
 #
 
-# Look for the 'smartimagediff_psnr' script in the same directory as this script.
-# If it is not found, try to use 'smartimagediff_psnr' in the PATH.
-smartimagediff_psnr=$(dirname $0)/smartimagediff_psnr
-if [ ! -x "$smartimagediff_psnr" ]; then
-    smartimagediff_psnr=smartimagediff_psnr
-fi
+# PSNR verdict (authoritative during the transition; smartimagediff_psnr was
+# located next to this script above).
 result=$($smartimagediff_psnr $OK_PNG $PNG 2>&1 | head -1)
 V=$(echo $result | awk '/^PSNR:/ { print $2 }')
 case "$V" in
     inf)
-        echo "${COL_GREEN}OK:${COL_OFF}"
+        echo "$(disagree 1)${COL_GREEN}OK:${COL_OFF} $sid_tag"
         exit 0
         ;;
     [0-9\.][0-9\.]*)
         if [ $(echo "$V >= 50" | bc) = 1 ]; then
-            echo "${COL_GREEN}OK:${COL_OFF} PSNR >= 50dB ($V dB)"
+            echo "$(disagree 1)${COL_GREEN}OK:${COL_OFF} PSNR >= 50dB ($V dB) $sid_tag"
             exit 0
         elif [ $(echo "$V >= 20" | bc) = 1 ]; then
-            echo "${COL_YELLOW}WARNING:${COL_OFF} 20dB <= PSNR < 50dB ($V dB)"
+            echo "$(disagree 1)${COL_YELLOW}WARNING:${COL_OFF} 20dB <= PSNR < 50dB ($V dB) $sid_tag"
             exit 0
         elif [ $(echo "$V >= 0" | bc) = 1 ]; then
-            echo "${COL_RED}FAIL:${COL_OFF} PSNR < 20dB ($V dB)"
+            echo "$(disagree 0)${COL_RED}FAIL:${COL_OFF} PSNR < 20dB ($V dB) $sid_tag"
             exit 100
         fi
         ;;
     *)
-        echo "${COL_RED}FAIL:${COL_OFF} $result"
+        echo "${COL_RED}FAIL:${COL_OFF} $result $sid_tag"
         exit 100
         ;;
 esac
