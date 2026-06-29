@@ -235,6 +235,18 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
             res.fail = true;
     }
 
+    // Anti-aliasing flood guard: a sub-pixel geometry displacement is misread
+    // pixel-by-pixel as anti-aliasing, so it never forms a "significant"
+    // cluster, yet it floods the AA-ignored count far beyond a genuine per-edge
+    // fringe. Fail when the AA-classified pixels exceed both an absolute floor
+    // and a fraction of the frame (see StructuralDiffOptions::maxAaFraction).
+    if (opts.maxAaFraction > 0 && res.aaIgnoredPixels >= opts.aaFloodMinPixels &&
+        res.aaIgnoredPixels >= (long)(opts.maxAaFraction * double(w) * double(h)))
+    {
+        res.aaFlood = true;
+        res.fail = true;
+    }
+
     if (overlayPath)
     {
         std::vector<uint8_t> out(w * h * 4);

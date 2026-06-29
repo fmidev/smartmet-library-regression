@@ -9,7 +9,8 @@
 //   smartimagediff <result> <expected> [overlay.png]
 // Exit code: 0 = OK, 1 = regression, 2 = error.
 //
-// Tunables (env): SID_THRESHOLD, SID_STRONG, SID_MIN_CLUSTER, SID_FAIL_CLUSTER
+// Tunables (env): SID_THRESHOLD, SID_STRONG, SID_MIN_CLUSTER, SID_FAIL_CLUSTER,
+//                 SID_MAX_AA_FRACTION, SID_AA_FLOOD_MIN
 
 #include "StructuralImageDiff.h"
 #include <Magick++.h>
@@ -43,6 +44,8 @@ int main(int argc, char* argv[])
         opts.strong = envd("SID_STRONG", opts.strong);
         opts.minClusterArea = (long)envd("SID_MIN_CLUSTER", opts.minClusterArea);
         opts.failClusterArea = (long)envd("SID_FAIL_CLUSTER", opts.failClusterArea);
+        opts.maxAaFraction = envd("SID_MAX_AA_FRACTION", opts.maxAaFraction);
+        opts.aaFloodMinPixels = (long)envd("SID_AA_FLOOD_MIN", opts.aaFloodMinPixels);
 
         std::optional<std::filesystem::path> overlay;
         if (argc == 4)
@@ -61,6 +64,8 @@ int main(int argc, char* argv[])
                   << " aa_ignored=" << r.aaIgnoredPixels;
         if (r.largestClusterArea > 0)
             std::cout << " at=[" << r.boxX << "," << r.boxY << " " << r.boxW << "x" << r.boxH << "]";
+        if (r.aaFlood)
+            std::cout << " aa_flood";
         std::cout << "\n";
         return r.fail ? 1 : 0;
     }

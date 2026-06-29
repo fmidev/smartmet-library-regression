@@ -198,6 +198,60 @@ void test_cluster_boundary()
     TEST_PASSED();
 }
 
+// A sub-pixel geometry displacement (a thin line that moved by ~1px along its
+// whole length) reads pixel-by-pixel as anti-aliasing -- every displaced pixel
+// is edge-adjacent -- so it forms no significant cluster, yet it floods the
+// AA-ignored count across a large share of the frame. The AA-flood guard must
+// catch it. This is the synthetic stand-in for the map-simplification false
+// negative (a simplified coastline taking a slightly different path) that the
+// cluster-only verdict silently passed.
+void test_aa_flood_caught()
+{
+    auto lines = [](const std::string& name, int dx) {
+        Magick::Image img(Magick::Geometry(400, 400), Magick::Color("white"));
+        img.strokeAntiAlias(true);
+        img.strokeColor(Magick::Color("black"));
+        img.strokeWidth(1);
+        for (int i = -400; i < 400; i += 12)
+            img.draw(Magick::DrawableLine(i + dx, 0, i + dx + 400, 399));  // many diagonals
+        auto p = P(name);
+        img.write(p.string());
+        return p;
+    };
+    auto base = lines("flood_base.png", 0);
+    auto shifted = lines("flood_shift.png", 1);  // whole field displaced by 1px
+
+    auto r = Fmi::structuralImageDiff(shifted, base);
+    if (r.aaIgnoredPixels == 0)
+        TEST_FAILED("shifted line field produced no anti-aliasing pixels (fixture too weak)");
+    if (!r.aaFlood)
+        TEST_FAILED("pervasive 1px line displacement did not trip the AA-flood guard (aa_ignored=" +
+                    std::to_string(r.aaIgnoredPixels) + ")");
+    if (!r.fail)
+        TEST_FAILED("AA flood did not fail the comparison");
+    TEST_PASSED();
+}
+
+// The benign anti-aliasing case (a localized blur) must NOT trip the flood
+// guard: too few AA pixels in absolute terms, even though their fraction of the
+// small fixture is not tiny. Pins the absolute-floor half of the guard.
+void test_aa_flood_not_tripped_by_blur()
+{
+    auto base = writeScene("flood_aa_base.png");
+    Magick::Image blurred(base.string());
+    blurred.blur(0.0, 0.6);
+    auto bp = P("flood_aa_blur.png");
+    blurred.write(bp.string());
+
+    auto r = Fmi::structuralImageDiff(bp, base);
+    if (r.aaFlood)
+        TEST_FAILED("localized blur wrongly tripped the AA-flood guard (aa_ignored=" +
+                    std::to_string(r.aaIgnoredPixels) + ")");
+    if (r.fail)
+        TEST_FAILED("localized blur was flagged as a regression");
+    TEST_PASSED();
+}
+
 // ---------------------------------------------------------------------------
 
 class StructuralImageDiffTests : public tframe::tests
@@ -213,6 +267,8 @@ class StructuralImageDiffTests : public tframe::tests
         TEST(test_low_amplitude_ignored);
         TEST(test_solid_block_caught);
         TEST(test_cluster_boundary);
+        TEST(test_aa_flood_caught);
+        TEST(test_aa_flood_not_tripped_by_blur);
     }
 };
 

@@ -27,6 +27,21 @@ struct StructuralDiffOptions
     double strong = 0.25;       // normalized amplitude for a "significant" pixel
     long minClusterArea = 8;    // clusters smaller than this are counted as noise
     long failClusterArea = 80;  // any surviving cluster >= this -> regression
+
+    // Anti-aliasing flood guard. The per-pixel AA detector cannot tell a
+    // *stationary* softened edge (harmless cross-OS / font-hinting jitter) from
+    // a thin line that *moved* by ~1px along its whole length (a real
+    // sub-pixel geometry change, e.g. a simplified coastline) -- both look like
+    // edge-adjacent differences, so the latter is silently absorbed into the
+    // AA-ignored count. Genuine AA stays a thin fringe (<=0.1% of the frame
+    // across the WMS suite); a displacement floods a far larger share. When the
+    // AA-classified pixels exceed BOTH an absolute floor and a fraction of the
+    // image, treat it as a regression instead of passing. Requiring both avoids
+    // false positives on small images (high fraction but few pixels, e.g. a
+    // blurred 200x200 fixture) and on huge sparse ones (many pixels, tiny
+    // fraction). Set maxAaFraction <= 0 to disable.
+    double maxAaFraction = 0.003;  // 0.3% of the image area
+    long aaFloodMinPixels = 1000;  // absolute floor below which the fraction is not trusted
 };
 
 struct StructuralDiffResult
@@ -40,6 +55,7 @@ struct StructuralDiffResult
     long clusterCount = 0;           // number of such clusters
     long largestClusterArea = 0;     // area of the biggest cluster
     int boxX = 0, boxY = 0, boxW = 0, boxH = 0;  // bbox of the biggest cluster
+    bool aaFlood = false;            // AA-ignored pixels flooded the frame (see options)
     bool fail = false;               // verdict
 };
 
