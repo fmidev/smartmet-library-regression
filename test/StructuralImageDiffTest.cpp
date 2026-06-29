@@ -41,13 +41,14 @@ Magick::Image baseScene()
 {
     Magick::Image img(Magick::Geometry(200, 200), Magick::Color("gray50"));
     img.strokeAntiAlias(true);
-    std::vector<Magick::Drawable> d;
-    d.emplace_back(Magick::DrawableFillColor("black"));
-    d.emplace_back(Magick::DrawableStrokeColor("black"));
-    d.emplace_back(Magick::DrawableCircle(55, 55, 55, 25));  // center (55,55), r=30
-    d.emplace_back(Magick::DrawableStrokeWidth(2));
-    d.emplace_back(Magick::DrawableLine(10, 150, 150, 10));  // diagonal stroke
-    img.draw(d);
+    // Image-level styling + single-Drawable draw() calls: the batch draw()
+    // overload takes std::list on ImageMagick 6 and std::vector on 7 with no
+    // common type, while draw(const Drawable&) works on both.
+    img.fillColor(Magick::Color("black"));
+    img.strokeColor(Magick::Color("black"));
+    img.draw(Magick::DrawableCircle(55, 55, 55, 25));  // center (55,55), r=30
+    img.strokeWidth(2);
+    img.draw(Magick::DrawableLine(10, 150, 150, 10));  // diagonal stroke
     img.magick("PNG");
     return img;
 }
@@ -64,11 +65,9 @@ fs::path writeScene(const std::string& name)
 fs::path sceneWithBlock(const std::string& name, int x1, int y1, int x2, int y2)
 {
     auto base = baseScene();
-    std::vector<Magick::Drawable> d;
-    d.emplace_back(Magick::DrawableFillColor("red"));
-    d.emplace_back(Magick::DrawableStrokeColor("red"));
-    d.emplace_back(Magick::DrawableRectangle(x1, y1, x2, y2));
-    base.draw(d);
+    base.fillColor(Magick::Color("red"));
+    base.strokeColor(Magick::Color("red"));
+    base.draw(Magick::DrawableRectangle(x1, y1, x2, y2));
     auto p = P(name);
     base.write(p.string());
     return p;

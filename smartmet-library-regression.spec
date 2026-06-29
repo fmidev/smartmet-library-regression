@@ -5,7 +5,7 @@
 Summary: regression test library
 Name: %{SPECNAME}
 Version: 26.6.29
-Release: 2%{?dist}.fmi
+Release: 3%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
 URL: https://github.com/fmidev/smartmet-library-regression
@@ -50,6 +50,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/smartpngdiff
 
 %changelog
+* Mon Jun 29 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> 26.6.29-3.fmi
+- Fix ImageMagick 6 (RHEL8) build: use the single-Drawable draw() overload
+  instead of the batch one (std::list on IM6 vs std::vector on IM7)
+
 * Mon Jun 29 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> 26.6.29-2.fmi
 - smartpngdiff: run smartimagediff alongside PSNR in shadow mode (structural
   verdict tag, red-boxed overlay diff image, disagreement marker)

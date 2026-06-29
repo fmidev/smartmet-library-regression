@@ -267,14 +267,14 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
         od.strokeColor("red");
         od.fillColor(Magick::Color("transparent"));
         od.strokeWidth(2);
-        std::vector<Magick::Drawable> draw;
+        // Draw each box with the single-Drawable overload: the batch draw()
+        // takes std::list on ImageMagick 6 and std::vector on 7 (no common
+        // container type), whereas draw(const Drawable&) exists in both.
         for (const auto& c : clusters)
             if (c.area >= opts.minClusterArea)
-                draw.push_back(Magick::DrawableRectangle(std::max(0, c.minx - 3), std::max(0, c.miny - 3),
-                                                         std::min((int)w - 1, c.maxx + 3),
-                                                         std::min((int)h - 1, c.maxy + 3)));
-        if (!draw.empty())
-            od.draw(draw);
+                od.draw(Magick::DrawableRectangle(std::max(0, c.minx - 3), std::max(0, c.miny - 3),
+                                                  std::min((int)w - 1, c.maxx + 3),
+                                                  std::min((int)h - 1, c.maxy + 3)));
         od.write(overlayPath->string());
     }
 
