@@ -4,8 +4,8 @@
 %define debug_package %{nil}
 Summary: regression test library
 Name: %{SPECNAME}
-Version: 26.6.29
-Release: 3%{?dist}.fmi
+Version: 26.9.3
+Release: 1%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
 URL: https://github.com/fmidev/smartmet-library-regression
@@ -53,6 +53,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/smartpngdiff.1*
 
 %changelog
+* Thu Sep  3 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.9.3-1.fmi
+- Add man files
+
 * Mon Jun 29 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> 26.6.29-3.fmi
 - Fix ImageMagick 6 (RHEL8) build: use the single-Drawable draw() overload
   instead of the batch one (std::list on IM6 vs std::vector on IM7)
