@@ -7,6 +7,8 @@ REQUIRES = filesystem
 
 include $(shell smartbuildcfg --prefix)/share/smartmet/devel/makefile.inc
 
+mandir ?= $(PREFIX)/share/man
+
 MAGICK_CFLAGS := $(shell pkg-config --cflags Magick++)
 MAGICK_LIBS := $(shell pkg-config --libs Magick++)
 
@@ -62,6 +64,13 @@ install:
 	  $(INSTALL_PROG) $$prog $(bindir)/$$prog; \
 	done
 	$(INSTALL_PROG) smartpngdiff $(bindir)/smartpngdiff
+	mkdir -p $(mandir)/man1
+	@for page in docs/man/*.1; do \
+	  base=`basename $$page`; \
+	  echo $(INSTALL_DATA) $$page $(mandir)/man1/$$base; \
+	  $(INSTALL_DATA) $$page $(mandir)/man1/$$base; \
+	  gzip -nf $(mandir)/man1/$$base; \
+	done
 
 test: $(PROGS) $(LIBFILE)
 	$(MAKE) -C test test

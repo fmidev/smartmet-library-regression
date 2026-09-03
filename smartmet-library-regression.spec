@@ -48,6 +48,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/smartimagediff_psnr
 %{_bindir}/smartimagediff
 %{_bindir}/smartpngdiff
+%{_mandir}/man1/smartimagediff.1*
+%{_mandir}/man1/smartimagediff_psnr.1*
+%{_mandir}/man1/smartpngdiff.1*
 
 %changelog
 * Mon Jun 29 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> 26.6.29-3.fmi

@@ -1,0 +1,82 @@
+.TH SMARTIMAGEDIFF_PSNR 1 "2026-09-03" "smartmet-library-regression" "SmartMet Regression Tools"
+.SH NAME
+smartimagediff_psnr \- compare two images and print the PSNR
+.SH SYNOPSIS
+.B smartimagediff_psnr
+.I image1
+.I image2
+.RI [ diff_output ]
+.SH DESCRIPTION
+.B smartimagediff_psnr
+loads two images via ImageMagick (Magick++), requires that they have
+identical width, height and bit depth, computes the mean\(hysquared
+error between them, and prints the corresponding peak signal\(hyto\(hynoise
+ratio in decibels:
+.PP
+.RS 4
+.B PSNR:
+.I value
+.B dB
+.RE
+.PP
+Identical images print
+.B PSNR: inf dB
+(infinite ratio); larger numbers indicate more similar images. This is
+the measurement engine behind the PSNR verdict of
+.BR smartpngdiff (1).
+.PP
+When the optional
+.I diff_output
+argument is given, a difference image is written to that path. It is
+produced with the
+.B Difference
+composite operator and histogram\(hyequalized, which makes even small
+pixel deltas visible \(em at the price of amplifying harmless
+anti\(hyaliasing noise over the whole frame. For a difference image that
+points at the actual change instead, see
+.BR smartimagediff (1).
+.PP
+A mismatch in dimensions or bit depth, an unreadable image or a wrong
+number of arguments is reported on standard error as
+.BI "Error: " message
+(or as a usage line) and the exit status is
+.BR 1 .
+.SH ARGUMENTS
+.TP
+.I image1
+First image to compare.
+.TP
+.I image2
+Second image to compare.
+.TP
+.I diff_output
+Optional output path for the equalized difference image.
+.SH EXIT STATUS
+.TP
+.B 0
+PSNR was computed and printed.
+.TP
+.B 1
+Wrong number of arguments, unreadable image, or images differing in
+size or depth.
+.SH EXAMPLES
+Compare two PNG files:
+.PP
+.RS 4
+smartimagediff_psnr expected.png actual.png
+.RE
+.PP
+Compare and write a difference image:
+.PP
+.RS 4
+smartimagediff_psnr expected.png actual.png diff.png
+.RE
+.SH SEE ALSO
+.BR smartpngdiff (1),
+.BR smartimagediff (1),
+.BR magick (1),
+.BR compare (1)
+.SH AUTHOR
+Finnish Meteorological Institute
+.PP
+Report issues at <https://github.com/fmidev/smartmet-library-regression/issues>.

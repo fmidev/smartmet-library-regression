@@ -1,0 +1,156 @@
+.TH SMARTPNGDIFF 1 "2026-09-03" "smartmet-library-regression" "SmartMet Regression Tools"
+.SH NAME
+smartpngdiff \- compare a PNG against a reference and report PSNR pass/fail
+.SH SYNOPSIS
+.B smartpngdiff
+.I ok_png
+.I png
+.I diff_png
+.SH DESCRIPTION
+.B smartpngdiff
+is the visual\(hyregression test driver used by SmartMet test suites.
+It compares a freshly produced PNG against a reference PNG, writes a
+difference image, and classifies the result by peak signal\(hyto\(hynoise
+ratio.
+.PP
+Both helper programs are searched for next to
+.B smartpngdiff
+itself first and then on the
+.BR PATH .
+.SS PSNR verdict
+The PSNR is measured by
+.BR smartimagediff_psnr (1)
+and is authoritative: it alone decides the reported verdict and the
+exit status.
+.RS 4
+.IP \(bu 2
+.B PSNR == infinity
+\(em images are bit\(hyidentical;
+.B OK
+is reported and the script exits with status
+.BR 0 .
+.IP \(bu 2
+.B PSNR >= 50 dB
+\(em differences below visual threshold;
+.B OK
+with the PSNR value, exit
+.BR 0 .
+.IP \(bu 2
+.B "20 dB <= PSNR < 50 dB"
+\(em
+.B WARNING
+with the PSNR value, exit
+.BR 0 .
+.IP \(bu 2
+.B PSNR < 20 dB
+\(em
+.B FAIL
+with the PSNR value, exit
+.BR 100 .
+.IP \(bu 2
+PSNR could not be parsed (corrupt image, dimension mismatch, etc.)
+\(em
+.BR FAIL ,
+exit
+.BR 100 .
+.RE
+.PP
+If the
+.I png
+input does not exist the script prints
+.B "*** FAILED: '...' not created"
+and exits with status
+.BR 255 .
+.SS Structural comparison (shadow mode)
+When
+.BR smartimagediff (1)
+is available it is run as well. It writes
+.IR diff_png ,
+which shows one image faded to faint grayscale with the clustered
+changes painted red and boxed, so the eye lands on a real regression
+instead of the equalized full\(hyframe edge noise. Its verdict does not
+affect the exit status; it is appended to every verdict line as
+.PP
+.RS 4
+.BI [sid: label " " info ]
+.RE
+.PP
+where
+.I label
+is
+.BR OK ,
+.BR FAIL ,
+.B ERROR
+(the program failed to run) or
+.B SKIP
+(the program was not found), and
+.I info
+is its first output line (cluster and changed\(hypixel counts). When the
+structural and the PSNR verdicts reach opposite pass/fail conclusions,
+the line is prefixed with
+.BR SHADOW-DISAGREE ,
+which is the greppable signal for comparing the two comparators on a
+real test run. Thresholds of the structural comparison can be tuned
+with its
+.B SID_*
+environment variables.
+.PP
+Without
+.BR smartimagediff (1)
+the difference image is produced the legacy way instead, by piping the
+two inputs through
+.BR composite (1)
+with the
+.B \-compose DIFFERENCE
+operator and through
+.B convert
+(or
+.BR magick (1))
+with
+.B "\-contrast-stretch 0"
+so that even small per\(hypixel deviations become visible.
+.PP
+ANSI colour output is suppressed when the
+.B CI
+environment variable is set, so test logs in CI remain plain text.
+.SH ARGUMENTS
+.TP
+.I ok_png
+Reference PNG (the expected image).
+.TP
+.I png
+Actual PNG produced by the test under inspection.
+.TP
+.I diff_png
+Path to write the difference image.
+.SH EXIT STATUS
+.TP
+.B 0
+PSNR in the OK or WARNING range, or images identical.
+.TP
+.B 100
+PSNR below threshold or comparison failed.
+.TP
+.B 255
+Actual PNG file is missing.
+.SH EXAMPLES
+.PP
+.RS 4
+smartpngdiff results_ok/contour.png results/contour.png \\
+.br
+.RS 0
+.RE
+.RS 4
+results_diff/contour.png
+.RE
+.RE
+.SH SEE ALSO
+.BR smartimagediff_psnr (1),
+.BR smartimagediff (1),
+.BR composite (1),
+.BR convert (1),
+.BR magick (1)
+.SH AUTHOR
+Finnish Meteorological Institute
+.PP
+Report issues at <https://github.com/fmidev/smartmet-library-regression/issues>.

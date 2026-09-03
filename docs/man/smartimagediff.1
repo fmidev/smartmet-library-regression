@@ -1,0 +1,194 @@
+.TH SMARTIMAGEDIFF 1 "2026-09-03" "smartmet-library-regression" "SmartMet Regression Tools"
+.SH NAME
+smartimagediff \- structural, anti\(hyaliasing\(hyaware image regression check
+.SH SYNOPSIS
+.B smartimagediff
+.I result
+.I expected
+.RI [ overlay.png ]
+.SH DESCRIPTION
+.B smartimagediff
+compares two images and judges on the
+.I geometry
+of the surviving differences instead of on their average. A global
+metric such as the PSNR of
+.BR smartimagediff_psnr (1)
+cannot separate sub\(hypixel anti\(hyaliasing and font\(hyhinting jitter
+spread thinly over every edge \(em which must be tolerated, for example
+when the accepted image was rendered on another OS or freetype version
+\(em from a spatially clustered solid change such as a missing glyph or
+a dropped map feature, which must be caught. Both can produce the same
+average error, and a real change may well score
+.I better
+than harmless noise.
+.PP
+The comparison proceeds in five steps:
+.RS 4
+.IP 1. 4
+per\(hypixel YIQ perceptual colour delta (pixelmatch / Yee metric);
+.IP 2. 4
+anti\(hyaliasing\(hyclass pixels are discarded (Vy\(vsniauskas detector);
+.IP 3. 4
+only high\(hyamplitude differences are kept \(em a dark glyph on a light
+isoband is a large colour delta, whereas font\(hyhinting jitter is a
+small gray\(hyversus\(hygray edge delta;
+.IP 4. 4
+the surviving pixels are clustered with 8\(hyconnectivity;
+.IP 5. 4
+the verdict is a failure if and only if some cluster is large enough.
+Rendering jitter only ever produces thin per\(hyedge specks, while a real
+change forms one solid blob.
+.RE
+.PP
+Images of differing dimensions are always a failure.
+.PP
+As a guard against a sub\(hypixel change that the per\(hypixel detector
+cannot distinguish from stationary anti\(hyaliasing \(em a thin line that
+moved by about one pixel along its whole length, for instance a
+simplified coastline \(em the result is also a failure when the
+anti\(hyaliasing\(hyclassified pixels exceed both
+.B SID_AA_FLOOD_MIN
+pixels and
+.B SID_MAX_AA_FRACTION
+of the image area. Genuine anti\(hyaliasing stays a thin fringe;
+a displacement floods a far larger share. Requiring both conditions
+avoids false positives on small images (high fraction but few pixels)
+and on huge sparse ones (many pixels, tiny fraction). Such a run is
+marked with
+.B aa_flood
+in the output.
+.PP
+When the optional
+.I overlay.png
+argument is given, a human\(hyfacing difference image is written there:
+the
+.I expected
+image faded to faint grayscale with the significant changes painted red
+and boxed, so the eye lands directly on the regression instead of
+scanning the equalized full\(hyframe of edge noise that a plain
+difference image produces.
+.PP
+.BR smartpngdiff (1)
+runs this program alongside the PSNR measurement; see there for how the
+two verdicts are combined.
+.SH ARGUMENTS
+.TP
+.I result
+Image produced by the test under inspection.
+.TP
+.I expected
+Accepted reference image.
+.TP
+.I overlay.png
+Optional output path for the red\(hyboxed difference overlay.
+.SH OUTPUT
+One line on standard output, for example:
+.PP
+.RS 4
+.nf
+OK    largest_cluster=6 clusters=2 changed_px=11 aa_ignored=843
+FAIL  largest_cluster=214 clusters=3 changed_px=402 aa_ignored=915 at=[512,233 46x18]
+FAIL  size mismatch 1024x768
+.fi
+.RE
+.PP
+.TP
+.B largest_cluster
+Area in pixels of the biggest surviving cluster \(em the number the
+verdict is based on.
+.TP
+.B clusters
+Number of clusters at or above the noise floor
+.RB ( SID_MIN_CLUSTER ).
+.TP
+.B changed_px
+Total number of pixels in those clusters.
+.TP
+.B aa_ignored
+Candidate pixels discarded as anti\(hyaliasing.
+.TP
+.B at=[x,y wxh]
+Bounding box of the biggest cluster, printed when one exists.
+.TP
+.B aa_flood
+The anti\(hyaliasing flood guard described above triggered.
+.SH ENVIRONMENT
+The thresholds are tunable; the defaults were chosen on the WMS
+regression suite and should rarely need changing.
+.TP
+.B SID_THRESHOLD
+Base per\(hypixel YIQ sensitivity (default
+.BR 0.1 ).
+.TP
+.B SID_STRONG
+Normalized amplitude above which a pixel counts as significant (default
+.BR 0.25 ).
+Raising it past about 0.30 starts dropping real glyph signal.
+.TP
+.B SID_MIN_CLUSTER
+Clusters smaller than this many pixels are counted as noise (default
+.BR 8 ).
+.TP
+.B SID_FAIL_CLUSTER
+Any surviving cluster of at least this many pixels is a regression
+(default
+.BR 80 ).
+.TP
+.B SID_MAX_AA_FRACTION
+Fraction of the image area above which anti\(hyaliasing\(hyclassified
+pixels are treated as a flood (default
+.BR 0.003 ,
+that is 0.3%). Set to
+.B 0
+or less to disable the guard.
+.TP
+.B SID_AA_FLOOD_MIN
+Absolute floor of anti\(hyaliasing\(hyclassified pixels below which the
+fraction is not trusted (default
+.BR 1000 ).
+.SH EXIT STATUS
+.TP
+.B 0
+No regression found.
+.TP
+.B 1
+Regression found, or the images differ in size.
+.TP
+.B 2
+Wrong number of arguments, or an image could not be read
+.RB ( "Error: " \fImessage\fR
+on standard error).
+.SH EXAMPLES
+Check a result against its reference:
+.PP
+.RS 4
+smartimagediff results/contour.png results_ok/contour.png
+.RE
+.PP
+Write the red\(hyboxed overlay as well, and be stricter about cluster
+size:
+.PP
+.RS 4
+SID_FAIL_CLUSTER=40 smartimagediff results/contour.png \\
+.br
+.RS 0
+.RE
+.RS 4
+results_ok/contour.png results_diff/contour.png
+.RE
+.RE
+.SH SEE ALSO
+.BR smartpngdiff (1),
+.BR smartimagediff_psnr (1),
+.BR magick (1)
+.PP
+The rationale, the measured PSNR\(hyversus\(hycluster separation and the
+tuning notes are in
+.B docs/structural-image-diff.md
+of the
+.B smartmet-library-regression
+sources.
+.SH AUTHOR
+Finnish Meteorological Institute
+.PP
+Report issues at <https://github.com/fmidev/smartmet-library-regression/issues>.
