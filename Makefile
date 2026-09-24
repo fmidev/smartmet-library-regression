@@ -43,7 +43,7 @@ $(LIBFILE): $(OBJS)
 	fi
 
 $(PROGS): %: main/%.cpp $(LIBFILE)
-	$(CXX) $(CFLAGS) $(INCLUDES) -o $@ $< -L. -l$(LIB) $(REQUIRED_LIBS) '-Wl,-rpath,$$ORIGIN' $(MAGICK_LIBS)
+	$(CXX) $(CFLAGS) $(INCLUDES) -o $@ $< -L. -l$(LIB) $(REQUIRED_LIBS) '-Wl,-rpath,$(libdir)' $(MAGICK_LIBS)
 
 clean:
 	rm -f *~ source/*~ include/*~ $(LIBFILE) $(PROGS)
