@@ -16,6 +16,10 @@ The regression library provides a regression testing framework used across Smart
 
 Used by the test suites of [smartmet-qdtools](https://github.com/fmidev/smartmet-qdtools), [smartmet-qdcontour](https://github.com/fmidev/smartmet-qdcontour), and other SmartMet components.
 
+## Documentation
+
+- [Developer guide](docs/developer-guide.md): writing tframe tests, image comparison tools, pitfalls
+
 ## License
 
 MIT — see [LICENSE](LICENSE)
