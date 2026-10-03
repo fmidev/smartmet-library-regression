@@ -4,7 +4,7 @@
 %define debug_package %{nil}
 Summary: regression test library
 Name: %{SPECNAME}
-Version: 26.9.3
+Version: 26.10.3
 Release: 1%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
@@ -53,6 +53,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/smartpngdiff.1*
 
 %changelog
+* Sat Oct 03 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.3-1.fmi
+- Fail tframe runs with tests that lack an ending macro
+
 * Thu Sep  3 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.9.3-1.fmi
 - Add man files
 
