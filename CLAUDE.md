@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`smartmet-library-regression` is a **header-only** C++ regression test framework (`tframe.h`) used across the SmartMet Server ecosystem. It provides macros and a base class for writing test suites — it is a foundation-level dependency with no SmartMet dependencies of its own.
+Full developer documentation: `docs/developer-guide.md`.
+
+`smartmet-library-regression` provides the header-only C++ test framework `tframe.h` used across the SmartMet Server ecosystem, and image comparison tools: `libsmartmet-regression.so` (`Fmi::imageDifferencePSNR`, the structural image diff, `Fmi::CreateAnimatedWebP`) and the programs `smartimagediff_psnr`, `smartimagediff` and `smartpngdiff`. The library and programs need Magick++; `tframe.h` itself has no dependencies.
 
 ## Build commands
 
 ```bash
-make              # No-op (header-only library, nothing to compile)
+make              # Build libsmartmet-regression.so and the image comparison programs
 make test         # Build and run tests in test/
 make install      # Install headers to $(includedir)/smartmet/regression/
 make rpm          # Build RPM package
@@ -32,7 +34,7 @@ Tests are written by:
 2. Subclassing `tframe::tests` and overriding `test()` to list test functions via the `TEST(name)` macro
 3. Calling `.run()` which returns `EXIT_SUCCESS` if all tests pass (unimplemented tests don't count as failures), `EXIT_FAILURE` otherwise
 
-Every test function **must** end with one of the three macros — if a test function returns normally, the framework prints "error in test (ending macro missing?)".
+Every test function **must** end with one of the three macros — if a test function returns normally, the framework prints "error in test (ending macro missing?)" and the summary says "failed", but `run()` still returns `EXIT_SUCCESS` (only thrown failures are counted).
 
 ## Consumers
 
