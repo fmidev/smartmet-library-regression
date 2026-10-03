@@ -130,7 +130,9 @@ public:
 		test();
 		out << "\n";
 		show_total();
-		return fail != 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+		// Tests which returned without an ending macro count as failures too,
+		// as in show_total()
+		return (fail == 0 && total == pass + nImpl) ? EXIT_SUCCESS : EXIT_FAILURE;
 	}
 };
 

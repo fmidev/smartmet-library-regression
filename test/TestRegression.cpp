@@ -57,6 +57,21 @@ public:
   }
 };
 
+void test4a() {
+  // Simulate a test that returns without an ending macro
+}
+
+class TestRegression4 : public ::tframe::tests {
+public:
+  TestRegression4() : ::tframe::tests('.', 50) {}
+  TestRegression4(std::ostream& o) : ::tframe::tests(o, '.', 50) {}
+
+  void test() override {
+    TEST(test1);
+    TEST(test4a);
+  }
+};
+
 int main(int argc,char **argv) {
   bool ok = true;
 
@@ -82,6 +97,14 @@ int main(int argc,char **argv) {
   {
     ok = false;
     std::cerr << "*** Test 3 failed even if should have passed, when there is only not implemented tests\n";
+  }
+
+  std::cout << "\n### Testing a test without an ending macro\n";
+  TestRegression4 test4;
+  if (test4.run() != EXIT_FAILURE)
+  {
+    ok = false;
+    std::cerr << "*** Test 4 passed even if a test had no ending macro\n";
   }
 
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
