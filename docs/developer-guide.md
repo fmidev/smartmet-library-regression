@@ -64,8 +64,9 @@ int main()
 * `TEST(name)` in `test()` runs one function and prints one line: `passed`, `failed` with
   the message, file and line, `not implemented`, or `unexpected exception` with the
   exception's `what()` (for `Fmi::Exception`, the innermost message).
-* `run()` prints the totals and returns `EXIT_FAILURE` if any test failed, otherwise
-  `EXIT_SUCCESS`. Not-implemented tests do not count as failures.
+* `run()` prints the totals and returns `EXIT_FAILURE` if any test failed or returned
+  without an ending macro, otherwise `EXIT_SUCCESS`. Not-implemented tests do not count
+  as failures.
 * There is no command-line selection of tests: all registered tests run in order.
 * Output goes to `std::cout` by default; the constructor overloads take another stream,
   the fill character and the column width, and the virtual `passed()`, `failed()`, … methods
@@ -89,10 +90,9 @@ the header does not need the library.
 
 ## 5. Known pitfalls
 
-* **A test without an ending macro does not fail the run.** If a test function returns
-  normally, tframe prints "error in test (ending macro missing?)", and the summary line
-  says "failed", but `run()` returns `EXIT_SUCCESS`, because only real failures are counted.
-  `make test` and CI therefore pass. Always end every path of a test function with a macro.
+* **A test without an ending macro fails the run.** If a test function returns normally,
+  tframe prints "error in test (ending macro missing?)" and `run()` returns
+  `EXIT_FAILURE`. End every path of a test function with a macro.
 * **The "ending macro missing" message goes to `std::cout`**, even when the tests were
   given another output stream.
 * **PSNR hides small changes**: a missing glyph barely moves the average. Use
