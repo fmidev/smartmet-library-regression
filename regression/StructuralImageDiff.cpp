@@ -204,7 +204,7 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
         continue;
       Cluster c{x, y, x, y, 0};
       std::queue<std::pair<int, int>> q;
-      q.push({x, y});
+      q.emplace(x, y);
       label[idx] = (int)clusters.size() + 1;
       while (!q.empty())
       {
@@ -226,7 +226,7 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
             if (mask[ni] == 2 && !label[ni])
             {
               label[ni] = (int)clusters.size() + 1;
-              q.push({nx, ny});
+              q.emplace(nx, ny);
             }
           }
       }
