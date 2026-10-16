@@ -148,6 +148,170 @@ struct Cluster
 
 namespace Fmi
 {
+namespace
+{
+// Classify the pixels: 0 = same, 1 = weak/AA difference, 2 = significant difference
+std::vector<uint8_t> classifyPixels(const std::vector<uint8_t>& a,
+                                    const std::vector<uint8_t>& b,
+                                    std::size_t w,
+                                    std::size_t h,
+                                    const StructuralDiffOptions& opts,
+                                    StructuralDiffResult& res)
+{
+  const double baseSq = opts.threshold * opts.threshold;
+
+  std::vector<uint8_t> mask(w * h, 0);
+  for (int y = 0; y < (int)h; ++y)
+    for (int x = 0; x < (int)w; ++x)
+    {
+      const std::size_t p = (std::size_t(y) * w + x) * 4;
+      const double nd = std::fabs(colorDelta(a.data(), b.data(), p, p, false)) / 35215.0;
+      if (nd <= baseSq)
+        continue;
+      ++res.candidatePixels;
+      const bool isStrong = std::sqrt(nd) >= opts.strong;
+      const bool isAA = antialiased(a.data(), x, y, w, h, b.data()) ||
+                        antialiased(b.data(), x, y, w, h, a.data());
+      if (isAA)
+        ++res.aaIgnoredPixels;
+      mask[std::size_t(y) * w + x] = (isStrong && !isAA) ? 2 : 1;
+    }
+  return mask;
+}
+
+// Flood fill the 8-connected cluster of significant pixels starting from (x,y)
+Cluster fillCluster(const std::vector<uint8_t>& mask,
+                    std::vector<int>& label,
+                    std::size_t w,
+                    std::size_t h,
+                    int x,
+                    int y,
+                    int clusterLabel)
+{
+  Cluster c{x, y, x, y, 0};
+  std::queue<std::pair<int, int>> q;
+  q.emplace(x, y);
+  label[std::size_t(y) * w + x] = clusterLabel;
+  while (!q.empty())
+  {
+    const auto [cx, cy] = q.front();
+    q.pop();
+    ++c.area;
+    c.minx = std::min(c.minx, cx);
+    c.maxx = std::max(c.maxx, cx);
+    c.miny = std::min(c.miny, cy);
+    c.maxy = std::max(c.maxy, cy);
+    for (int dy = -1; dy <= 1; ++dy)
+      for (int dx = -1; dx <= 1; ++dx)
+      {
+        const int nx = cx + dx;
+        const int ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= (int)w || ny >= (int)h)
+          continue;
+        const std::size_t ni = std::size_t(ny) * w + nx;
+        if (mask[ni] == 2 && !label[ni])
+        {
+          label[ni] = clusterLabel;
+          q.emplace(nx, ny);
+        }
+      }
+  }
+  return c;
+}
+
+// 8-connected clustering of the significant pixels, largest clusters first
+std::vector<Cluster> findClusters(const std::vector<uint8_t>& mask, std::size_t w, std::size_t h)
+{
+  std::vector<int> label(w * h, 0);
+  std::vector<Cluster> clusters;
+  for (int y = 0; y < (int)h; ++y)
+    for (int x = 0; x < (int)w; ++x)
+    {
+      const std::size_t idx = std::size_t(y) * w + x;
+      if (mask[idx] != 2 || label[idx])
+        continue;
+      clusters.push_back(fillCluster(mask, label, w, h, x, y, (int)clusters.size() + 1));
+    }
+
+  std::sort(clusters.begin(),
+            clusters.end(),
+            [](const Cluster& p, const Cluster& q) { return p.area > q.area; });
+  return clusters;
+}
+
+// Collect the statistics of the significant clusters
+void summarizeClusters(const std::vector<Cluster>& clusters,
+                       const StructuralDiffOptions& opts,
+                       StructuralDiffResult& res)
+{
+  for (const auto& c : clusters)
+  {
+    if (c.area < opts.minClusterArea)
+      continue;
+    ++res.clusterCount;
+    res.significantPixels += c.area;
+    if (c.area >= res.largestClusterArea)
+    {
+      res.largestClusterArea = c.area;
+      res.boxX = c.minx;
+      res.boxY = c.miny;
+      res.boxW = c.maxx - c.minx + 1;
+      res.boxH = c.maxy - c.miny + 1;
+    }
+    if (c.area >= opts.failClusterArea)
+      res.fail = true;
+  }
+}
+
+// Set the overlay color of a pixel
+void setColor(std::vector<uint8_t>& out, std::size_t i, uint8_t r, uint8_t g, uint8_t b)
+{
+  out[i * 4] = r;
+  out[i * 4 + 1] = g;
+  out[i * 4 + 2] = b;
+}
+
+// Write an overlay image of the differences on a washed out version of the second image
+void writeOverlay(const std::filesystem::path& overlayPath,
+                  const std::vector<uint8_t>& b,
+                  const std::vector<uint8_t>& mask,
+                  const std::vector<Cluster>& clusters,
+                  std::size_t w,
+                  std::size_t h,
+                  const StructuralDiffOptions& opts)
+{
+  std::vector<uint8_t> out(w * h * 4);
+  for (std::size_t i = 0; i < w * h; ++i)
+  {
+    double g = 0.30 * b[i * 4] + 0.59 * b[i * 4 + 1] + 0.11 * b[i * 4 + 2];
+    g = 200.0 + g * 0.2;  // wash out for low-contrast context
+    const uint8_t gv = (uint8_t)std::min(255.0, g);
+    if (mask[i] == 2)
+      setColor(out, i, 255, 0, 0);
+    else if (mask[i] == 1)
+      setColor(out, i, 190, 210, 255);
+    else
+      setColor(out, i, gv, gv, gv);
+    out[i * 4 + 3] = 255;
+  }
+  Magick::Image od(w, h, "RGBA", Magick::CharPixel, out.data());
+  od.strokeColor("red");
+  od.fillColor(Magick::Color("transparent"));
+  od.strokeWidth(2);
+  // Draw each box with the single-Drawable overload: the batch draw()
+  // takes std::list on ImageMagick 6 and std::vector on 7 (no common
+  // container type), whereas draw(const Drawable&) exists in both.
+  for (const auto& c : clusters)
+    if (c.area >= opts.minClusterArea)
+      od.draw(Magick::DrawableRectangle(std::max(0, c.minx - 3),
+                                        std::max(0, c.miny - 3),
+                                        std::min((int)w - 1, c.maxx + 3),
+                                        std::min((int)h - 1, c.maxy + 3)));
+  od.write(overlayPath.string());
+}
+
+}  // namespace
+
 StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
                                          const std::filesystem::path& image2,
                                          std::optional<std::filesystem::path> overlayPath,
@@ -173,87 +337,13 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
   im1.write(0, 0, w, h, "RGBA", Magick::CharPixel, a.data());
   im2.write(0, 0, w, h, "RGBA", Magick::CharPixel, b.data());
 
-  const double baseSq = opts.threshold * opts.threshold;
-
   // mask: 0 = same, 1 = weak/AA difference, 2 = significant difference
-  std::vector<uint8_t> mask(w * h, 0);
-  for (int y = 0; y < (int)h; ++y)
-    for (int x = 0; x < (int)w; ++x)
-    {
-      const std::size_t p = (std::size_t(y) * w + x) * 4;
-      const double nd = std::fabs(colorDelta(a.data(), b.data(), p, p, false)) / 35215.0;
-      if (nd <= baseSq)
-        continue;
-      ++res.candidatePixels;
-      const bool isStrong = std::sqrt(nd) >= opts.strong;
-      const bool isAA = antialiased(a.data(), x, y, w, h, b.data()) ||
-                        antialiased(b.data(), x, y, w, h, a.data());
-      if (isAA)
-        ++res.aaIgnoredPixels;
-      mask[std::size_t(y) * w + x] = (isStrong && !isAA) ? 2 : 1;
-    }
+  const auto mask = classifyPixels(a, b, w, h, opts, res);
 
   // 8-connected clustering of the significant pixels.
-  std::vector<int> label(w * h, 0);
-  std::vector<Cluster> clusters;
-  for (int y = 0; y < (int)h; ++y)
-    for (int x = 0; x < (int)w; ++x)
-    {
-      const std::size_t idx = std::size_t(y) * w + x;
-      if (mask[idx] != 2 || label[idx])
-        continue;
-      Cluster c{x, y, x, y, 0};
-      std::queue<std::pair<int, int>> q;
-      q.emplace(x, y);
-      label[idx] = (int)clusters.size() + 1;
-      while (!q.empty())
-      {
-        const auto [cx, cy] = q.front();
-        q.pop();
-        ++c.area;
-        c.minx = std::min(c.minx, cx);
-        c.maxx = std::max(c.maxx, cx);
-        c.miny = std::min(c.miny, cy);
-        c.maxy = std::max(c.maxy, cy);
-        for (int dy = -1; dy <= 1; ++dy)
-          for (int dx = -1; dx <= 1; ++dx)
-          {
-            const int nx = cx + dx;
-            const int ny = cy + dy;
-            if (nx < 0 || ny < 0 || nx >= (int)w || ny >= (int)h)
-              continue;
-            const std::size_t ni = std::size_t(ny) * w + nx;
-            if (mask[ni] == 2 && !label[ni])
-            {
-              label[ni] = (int)clusters.size() + 1;
-              q.emplace(nx, ny);
-            }
-          }
-      }
-      clusters.push_back(c);
-    }
+  const auto clusters = findClusters(mask, w, h);
 
-  std::sort(clusters.begin(),
-            clusters.end(),
-            [](const Cluster& p, const Cluster& q) { return p.area > q.area; });
-
-  for (const auto& c : clusters)
-  {
-    if (c.area < opts.minClusterArea)
-      continue;
-    ++res.clusterCount;
-    res.significantPixels += c.area;
-    if (c.area >= res.largestClusterArea)
-    {
-      res.largestClusterArea = c.area;
-      res.boxX = c.minx;
-      res.boxY = c.miny;
-      res.boxW = c.maxx - c.minx + 1;
-      res.boxH = c.maxy - c.miny + 1;
-    }
-    if (c.area >= opts.failClusterArea)
-      res.fail = true;
-  }
+  summarizeClusters(clusters, opts, res);
 
   // Anti-aliasing flood guard: a sub-pixel geometry displacement is misread
   // pixel-by-pixel as anti-aliasing, so it never forms a "significant"
@@ -268,48 +358,7 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
   }
 
   if (overlayPath)
-  {
-    std::vector<uint8_t> out(w * h * 4);
-    for (std::size_t i = 0; i < w * h; ++i)
-    {
-      double g = 0.30 * b[i * 4] + 0.59 * b[i * 4 + 1] + 0.11 * b[i * 4 + 2];
-      g = 200.0 + g * 0.2;  // wash out for low-contrast context
-      const uint8_t gv = (uint8_t)std::min(255.0, g);
-      if (mask[i] == 2)
-      {
-        out[i * 4] = 255;
-        out[i * 4 + 1] = 0;
-        out[i * 4 + 2] = 0;
-      }
-      else if (mask[i] == 1)
-      {
-        out[i * 4] = 190;
-        out[i * 4 + 1] = 210;
-        out[i * 4 + 2] = 255;
-      }
-      else
-      {
-        out[i * 4] = gv;
-        out[i * 4 + 1] = gv;
-        out[i * 4 + 2] = gv;
-      }
-      out[i * 4 + 3] = 255;
-    }
-    Magick::Image od(w, h, "RGBA", Magick::CharPixel, out.data());
-    od.strokeColor("red");
-    od.fillColor(Magick::Color("transparent"));
-    od.strokeWidth(2);
-    // Draw each box with the single-Drawable overload: the batch draw()
-    // takes std::list on ImageMagick 6 and std::vector on 7 (no common
-    // container type), whereas draw(const Drawable&) exists in both.
-    for (const auto& c : clusters)
-      if (c.area >= opts.minClusterArea)
-        od.draw(Magick::DrawableRectangle(std::max(0, c.minx - 3),
-                                          std::max(0, c.miny - 3),
-                                          std::min((int)w - 1, c.maxx + 3),
-                                          std::min((int)h - 1, c.maxy + 3)));
-    od.write(overlayPath->string());
-  }
+    writeOverlay(*overlayPath, b, mask, clusters, w, h, opts);
 
   return res;
 }
