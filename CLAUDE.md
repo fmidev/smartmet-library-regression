@@ -34,7 +34,7 @@ Tests are written by:
 2. Subclassing `tframe::tests` and overriding `test()` to list test functions via the `TEST(name)` macro
 3. Calling `.run()` which returns `EXIT_SUCCESS` if all tests pass (unimplemented tests don't count as failures), `EXIT_FAILURE` otherwise
 
-Every test function **must** end with one of the three macros — if a test function returns normally, the framework prints "error in test (ending macro missing?)" and the summary says "failed", but `run()` still returns `EXIT_SUCCESS` (only thrown failures are counted).
+Every test function **must** end with one of the three macros — if a test function returns normally, the framework prints "error in test (ending macro missing?)" (always to `std::cout`), the summary says "failed", and `run()` returns `EXIT_FAILURE`.
 
 ## Consumers
 

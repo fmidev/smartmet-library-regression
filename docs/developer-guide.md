@@ -78,7 +78,7 @@ int main()
 |-----------------|---------|
 | `smartimagediff_psnr a b [diff]`, `Fmi::imageDifferencePSNR()` | Global PSNR in dB; optionally writes a difference image. The callers decide the thresholds (the WMS tests use ≥ 50 OK, ≥ 20 warning). |
 | `smartimagediff a b [overlay]` | Structural diff: ignores antialiasing and font jitter, and fails on connected clusters of changed pixels. Exit code 0 OK, 1 regression, 2 error; tunables via `SID_*` environment variables. |
-| `smartpngdiff ok new diff` | Shell script around ImageMagick `compare`. |
+| `smartpngdiff ok new diff` | Shell script: the PSNR verdict of `smartimagediff_psnr` (≥ 50 dB OK, ≥ 20 dB warning, exit 100 on failure), with the `smartimagediff` verdict appended in shadow mode and its overlay as the diff image. |
 | `Fmi::CreateAnimatedWebP()` | Builds an animated WebP from PNG frames, for inspecting animation test results. |
 
 ## 4. Compatibility

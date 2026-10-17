@@ -103,6 +103,7 @@ OK    largest_cluster=10 clusters=0 changed_px=0 aa_ignored=31713
 FAIL  largest_cluster=169 clusters=1 changed_px=169 aa_ignored=18 at=[530,501 11x17]
 ```
 
+Images of different sizes print `FAIL  size mismatch WxH`.
 Exit code 0 = OK, 1 = regression, 2 = error. The `at=[x,y WxH]` box points the
 inspector straight at the change. The optional overlay PNG shows the expected
 image faded to faint grayscale with the real change painted red and boxed —
@@ -116,6 +117,14 @@ instead of an equalized full-frame of antialiasing.
 | `SID_STRONG`       | 0.25    | normalized amplitude for a "significant" pixel |
 | `SID_MIN_CLUSTER`  | 8       | clusters smaller than this counted as noise    |
 | `SID_FAIL_CLUSTER` | 80      | a cluster ≥ this is a regression               |
+| `SID_MAX_AA_FRACTION` | 0.003 | anti-aliasing flood guard: fraction of the image area (≤ 0 disables) |
+| `SID_AA_FLOOD_MIN` | 1000    | anti-aliasing flood guard: absolute pixel floor |
+
+The anti-aliasing flood guard catches a thin line that moved by about one pixel
+along its whole length: such a change looks like anti-aliasing pixel by pixel.
+Genuine anti-aliasing stays a thin fringe, so when the pixels classified as
+anti-aliasing exceed both `SID_AA_FLOOD_MIN` and `SID_MAX_AA_FRACTION` of the
+image, the comparison fails and the output line ends with `aa_flood`.
 
 ## Known floor
 
@@ -128,8 +137,14 @@ unrealistically different rasterizer.
 
 ## Integration into CompareImages.pl
 
-Drop-in for the final PNG comparison block (the `smartimagediff_psnr` call near
-the end). Replace:
+The WMS plugin's `test/CompareImages.pl` currently runs `smartimagediff` in
+**shadow mode**: `smartimagediff_psnr` still decides OK / WARNING / FAIL, the
+structural verdict is appended to each status line as `[sid:...]`, the overlay
+is written to `failures/<name>_overlay.png`, and lines where the two verdicts
+disagree are marked `SHADOW-DISAGREE`. The script skips the structural check
+when `smartimagediff` is not installed.
+
+To make `smartimagediff` the gate, replace the final PNG comparison block:
 
 ```perl
 my $difference_str = `smartimagediff_psnr $RESULT_PNG $EXPECTED_PNG $DIFFERENCE_PNG`;
