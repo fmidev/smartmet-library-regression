@@ -95,17 +95,59 @@ assumption to be aware of:
 > human, and it would be a genuine positioning regression. (The existing PSNR
 > tool shares the same pixel-aligned assumption.)
 
+## Area changes in pale colours
+
+The amplitude bar of step 3 has a blind spot: pale colours. Meteorological
+backgrounds and isoband palettes use colours that differ by less than the base
+threshold, so a whole recoloured area produces no candidate pixels at all:
+
+| colour pair                              | normalized YIQ difference |
+|------------------------------------------|---------------------------|
+| meteo-light land vs sea                  | 0.085 (below `SID_THRESHOLD`) |
+| meteo-dark land vs sea                   | 0.058 |
+| adjacent light-blue isoband colours      | 0.099 |
+| protomaps-light land vs water            | 0.216 (below `SID_STRONG`) |
+| yellow vs light green precipitation      | 0.239 |
+
+Recolouring one band of `wms_getmap_isoband_style1` to its neighbour's colour
+or deleting a pale band passed with **0 changed pixels** (PSNR 28.5–36.7 dB),
+and replacing a fictional OSM test tile with a real map of Helsinki (81% of the
+pixels changed) passed too.
+
+Such a change is one large solid area, whereas rendering differences stay thin.
+So a second, independent check clusters the pixels differing by more than
+`SID_AREA_THRESHOLD` (default 0.03) that are not anti-aliasing, after eroding
+them by `SID_AREA_EROSION` pixels (default 2) so that softened or displaced
+edges and thin lines vanish. A cluster of at least `SID_MAX_AREA_FRACTION` of
+the image (default 0.002) and `SID_AREA_MIN` pixels (default 200) fails the
+comparison, and the output ends with `area_change`. The threshold 0.03 stays
+above uniform palette quantization shifts (an 8 level shift of every channel is
+about 0.03).
+
+Measured largest area after erosion, as a fraction of the image:
+
+| case                                                     | largest area |
+|----------------------------------------------------------|--------------|
+| whole WMS suite on el8 (120 image tests differing from the reference) | ≤ 33 px, 0.022% |
+| whole WMS suite on el10 (138 image tests differing from the reference) | ≤ 62 px, 0.003% |
+| recoloured or deleted pale isoband (4 variants)           | 0.86–1.4%    |
+| OSM map replaced (9 tests)                                | 2.1–45%      |
+
+The default 0.2% leaves a margin of about 9 on the jitter side and 4 on the
+regression side.
+
 ## Output
 
 ```
 $ smartimagediff result.png expected.png overlay.png
 OK    largest_cluster=10 clusters=0 changed_px=0 aa_ignored=31713
-FAIL  largest_cluster=169 clusters=1 changed_px=169 aa_ignored=18 at=[530,501 11x17]
+FAIL  largest_cluster=169 clusters=1 changed_px=169 aa_ignored=18 at=[530,501 11x17] largest_area=0
+FAIL  largest_cluster=0 clusters=0 changed_px=0 aa_ignored=0 largest_area=6159 area_at=[156,141 126x188] area_change
 ```
 
 Images of different sizes print `FAIL  size mismatch WxH`.
 Exit code 0 = OK, 1 = regression, 2 = error. The `at=[x,y WxH]` box points the
-inspector straight at the change. The optional overlay PNG shows the expected
+inspector straight at the change, `area_at=[x,y WxH]` at the largest area change. The optional overlay PNG shows the expected
 image faded to faint grayscale with the real change painted red and boxed —
 instead of an equalized full-frame of antialiasing.
 
@@ -119,6 +161,10 @@ instead of an equalized full-frame of antialiasing.
 | `SID_FAIL_CLUSTER` | 80      | a cluster ≥ this is a regression               |
 | `SID_MAX_AA_FRACTION` | 0.003 | anti-aliasing flood guard: fraction of the image area (≤ 0 disables) |
 | `SID_AA_FLOOD_MIN` | 1000    | anti-aliasing flood guard: absolute pixel floor |
+| `SID_AREA_THRESHOLD` | 0.03  | area change check: normalized amplitude of a changed pixel |
+| `SID_AREA_EROSION` | 2       | area change check: erosion radius in pixels   |
+| `SID_MAX_AREA_FRACTION` | 0.002 | area change check: fraction of the image area (≤ 0 disables) |
+| `SID_AREA_MIN`     | 200     | area change check: absolute pixel floor        |
 
 The anti-aliasing flood guard catches a thin line that moved by about one pixel
 along its whole length: such a change looks like anti-aliasing pixel by pixel.

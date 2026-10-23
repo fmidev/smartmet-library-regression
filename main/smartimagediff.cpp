@@ -10,7 +10,8 @@
 // Exit code: 0 = OK, 1 = regression, 2 = error.
 //
 // Tunables (env): SID_THRESHOLD, SID_STRONG, SID_MIN_CLUSTER, SID_FAIL_CLUSTER,
-//                 SID_MAX_AA_FRACTION, SID_AA_FLOOD_MIN
+//                 SID_MAX_AA_FRACTION, SID_AA_FLOOD_MIN, SID_AREA_THRESHOLD,
+//                 SID_MAX_AREA_FRACTION, SID_AREA_MIN, SID_AREA_EROSION
 
 #include "StructuralImageDiff.h"
 #include <Magick++.h>
@@ -46,6 +47,10 @@ int main(int argc, char* argv[])
         opts.failClusterArea = (long)envd("SID_FAIL_CLUSTER", opts.failClusterArea);
         opts.maxAaFraction = envd("SID_MAX_AA_FRACTION", opts.maxAaFraction);
         opts.aaFloodMinPixels = (long)envd("SID_AA_FLOOD_MIN", opts.aaFloodMinPixels);
+        opts.areaThreshold = envd("SID_AREA_THRESHOLD", opts.areaThreshold);
+        opts.maxAreaFraction = envd("SID_MAX_AREA_FRACTION", opts.maxAreaFraction);
+        opts.areaMinPixels = (long)envd("SID_AREA_MIN", opts.areaMinPixels);
+        opts.areaErosion = (int)envd("SID_AREA_EROSION", opts.areaErosion);
 
         std::optional<std::filesystem::path> overlay;
         if (argc == 4)
@@ -64,8 +69,14 @@ int main(int argc, char* argv[])
                   << " aa_ignored=" << r.aaIgnoredPixels;
         if (r.largestClusterArea > 0)
             std::cout << " at=[" << r.boxX << "," << r.boxY << " " << r.boxW << "x" << r.boxH << "]";
+        std::cout << " largest_area=" << r.largestArea;
+        if (r.largestArea > 0)
+            std::cout << " area_at=[" << r.areaX << "," << r.areaY << " " << r.areaW << "x" << r.areaH
+                      << "]";
         if (r.aaFlood)
             std::cout << " aa_flood";
+        if (r.areaChange)
+            std::cout << " area_change";
         std::cout << "\n";
         return r.fail ? 1 : 0;
     }

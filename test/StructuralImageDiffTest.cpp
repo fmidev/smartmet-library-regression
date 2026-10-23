@@ -129,12 +129,10 @@ void test_antialiasing_ignored()
     TEST_PASSED();
 }
 
-// A low-amplitude change spread over the whole frame (uniform brightness shift)
-// must NOT fail: it touches every pixel but no pixel crosses the "significant"
-// amplitude bar, so it is filtered before clustering.
-void test_low_amplitude_ignored()
+// Shift every colour channel of the base scene by the given amount
+fs::path shiftedScene(const std::string& baseName, const std::string& name, int shift)
 {
-    auto base = writeScene("lo_base.png");
+    auto base = writeScene(baseName);
     Magick::Image img(base.string());
     const std::size_t w = img.columns(), h = img.rows();
     std::vector<uint8_t> buf(w * h * 4);
@@ -142,21 +140,104 @@ void test_low_amplitude_ignored()
     for (std::size_t i = 0; i < w * h; ++i)
         for (int c = 0; c < 3; ++c)
         {
-            const int v = buf[i * 4 + c] + 40;  // crosses base threshold, stays under "strong"
+            const int v = buf[i * 4 + c] + shift;
             buf[i * 4 + c] = static_cast<uint8_t>(v > 255 ? 255 : v);
         }
     Magick::Image shifted(w, h, "RGBA", Magick::CharPixel, buf.data());
-    auto sp = P("lo_shift.png");
+    auto sp = P(name);
     shifted.write(sp.string());
+    return sp;
+}
 
-    auto r = Fmi::structuralImageDiff(sp, base);
-    if (r.candidatePixels == 0)
-        TEST_FAILED("brightness shift produced no candidate pixels (fixture too weak)");
+// A tiny change spread over the whole frame (a uniform shift of a few levels,
+// as from palette quantization) must NOT fail: no pixel crosses the area
+// change threshold, let alone the significant amplitude bar.
+void test_low_amplitude_ignored()
+{
+    auto sp = shiftedScene("lo_base.png", "lo_shift.png", 3);
+    auto r = Fmi::structuralImageDiff(sp, P("lo_base.png"));
     if (r.significantPixels != 0)
         TEST_FAILED("low-amplitude shift produced significant pixels: " +
                     std::to_string(r.significantPixels));
+    if (r.areaPixels != 0)
+        TEST_FAILED("low-amplitude shift produced area change pixels: " +
+                    std::to_string(r.areaPixels));
     if (r.fail)
         TEST_FAILED("uniform low-amplitude shift was flagged as a regression");
+    TEST_PASSED();
+}
+
+// A clearly visible brightness change of the whole frame must fail even though
+// no pixel crosses the significant amplitude bar: it is one large area change.
+void test_uniform_shift_caught()
+{
+    auto sp = shiftedScene("us_base.png", "us_shift.png", 40);
+    auto r = Fmi::structuralImageDiff(sp, P("us_base.png"));
+    if (r.significantPixels != 0)
+        TEST_FAILED("brightness shift unexpectedly produced significant pixels (fixture too strong)");
+    if (!r.areaChange)
+        TEST_FAILED("uniform brightness shift was not reported as an area change (largest_area=" +
+                    std::to_string(r.largestArea) + ")");
+    if (!r.fail)
+        TEST_FAILED("uniform brightness shift was not caught");
+    TEST_PASSED();
+}
+
+// A map with pale land and sea colours (meteorological light background)
+fs::path paleMap(const std::string& name, const std::string& land, const std::string& sea, int x2)
+{
+    Magick::Image img(Magick::Geometry(300, 200), Magick::Color(sea));
+    img.strokeAntiAlias(true);
+    img.fillColor(Magick::Color(land));
+    img.strokeColor(Magick::Color(land));
+    img.draw(Magick::DrawableRectangle(20, 20, x2, 180));
+    img.strokeColor(Magick::Color("gray60"));
+    img.strokeWidth(1);
+    img.draw(Magick::DrawableLine(0, 100, 299, 100));  // a road, unchanged
+    auto p = P(name);
+    img.write(p.string());
+    return p;
+}
+
+// Swapping pale land and sea colours over a large area (difference 0.085,
+// below the base threshold) must fail. The cluster check sees nothing.
+void test_pale_recolour_caught()
+{
+    auto base = paleMap("pale_base.png", "#f0efeb", "#cfdfe8", 200);
+    auto swapped = paleMap("pale_swap.png", "#cfdfe8", "#f0efeb", 200);
+    auto r = Fmi::structuralImageDiff(swapped, base);
+    if (r.candidatePixels != 0)
+        TEST_FAILED("pale colour swap crossed the base threshold (fixture too strong)");
+    if (!r.areaChange || !r.fail)
+        TEST_FAILED("pale land/sea colour swap was not caught (largest_area=" +
+                    std::to_string(r.largestArea) + ")");
+    if (r.areaX > 30 || r.areaY > 30)
+        TEST_FAILED("area bounding box missed the change: " + std::to_string(r.areaX) + "," +
+                    std::to_string(r.areaY));
+    TEST_PASSED();
+}
+
+// The area check is driven by the size of the largest connected area: a pale
+// coastline moved by 1px is a thin line and passes, land that grew by a block
+// of 0.9% of the image fails.
+void test_area_boundary()
+{
+    {
+        auto base = paleMap("ab1_base.png", "#f0efeb", "#cfdfe8", 200);
+        auto mod = paleMap("ab1_mod.png", "#f0efeb", "#cfdfe8", 201);  // 1px x 161px strip
+        auto r = Fmi::structuralImageDiff(mod, base);
+        if (r.areaChange || r.fail)
+            TEST_FAILED("a 1px coastline displacement was wrongly flagged (largest_area=" +
+                        std::to_string(r.largestArea) + ")");
+    }
+    {
+        auto base = paleMap("ab2_base.png", "#f0efeb", "#cfdfe8", 200);
+        auto mod = paleMap("ab2_mod.png", "#f0efeb", "#cfdfe8", 220);  // 20 x 161 = 1.07% of 300x200
+        auto r = Fmi::structuralImageDiff(mod, base);
+        if (!r.areaChange || !r.fail)
+            TEST_FAILED("a pale area change of ~1% of the image was not caught (largest_area=" +
+                        std::to_string(r.largestArea) + ")");
+    }
     TEST_PASSED();
 }
 
@@ -265,6 +346,9 @@ class StructuralImageDiffTests : public tframe::tests
         TEST(test_size_mismatch);
         TEST(test_antialiasing_ignored);
         TEST(test_low_amplitude_ignored);
+        TEST(test_uniform_shift_caught);
+        TEST(test_pale_recolour_caught);
+        TEST(test_area_boundary);
         TEST(test_solid_block_caught);
         TEST(test_cluster_boundary);
         TEST(test_aa_flood_caught);

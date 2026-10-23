@@ -58,6 +58,24 @@ marked with
 .B aa_flood
 in the output.
 .PP
+Pale colours differ by less than the per\(hypixel thresholds: a light
+land colour and a light sea colour, or two adjacent light isoband
+colours, differ by less than
+.BR SID_THRESHOLD .
+A whole recoloured area would therefore pass the cluster check above.
+The result is also a failure when the pixels differing by more than
+.B SID_AREA_THRESHOLD
+that are not anti\(hyaliasing, eroded by
+.B SID_AREA_EROSION
+pixels so that only solid areas remain, form a connected area of at least
+.B SID_AREA_MIN
+pixels and
+.B SID_MAX_AREA_FRACTION
+of the image area. Rendering differences stay thin and vanish in the
+erosion. Such a run is marked with
+.B area_change
+in the output.
+.PP
 When the optional
 .I overlay.png
 argument is given, a human\(hyfacing difference image is written there:
@@ -86,8 +104,9 @@ One line on standard output, for example:
 .PP
 .RS 4
 .nf
-OK    largest_cluster=6 clusters=2 changed_px=11 aa_ignored=843
-FAIL  largest_cluster=214 clusters=3 changed_px=402 aa_ignored=915 at=[512,233 46x18]
+OK    largest_cluster=6 clusters=2 changed_px=11 aa_ignored=843 largest_area=0
+FAIL  largest_cluster=214 clusters=3 changed_px=402 aa_ignored=915 at=[512,233 46x18] largest_area=12
+FAIL  largest_cluster=0 clusters=0 changed_px=0 aa_ignored=0 largest_area=6159 area_at=[156,141 126x188] area_change
 FAIL  size mismatch 1024x768
 .fi
 .RE
@@ -110,8 +129,17 @@ Candidate pixels discarded as anti\(hyaliasing.
 .B at=[x,y wxh]
 Bounding box of the biggest cluster, printed when one exists.
 .TP
+.B largest_area
+Area in pixels of the biggest connected area change after the erosion.
+.TP
+.B area_at=[x,y wxh]
+Bounding box of the biggest area change, printed when one exists.
+.TP
 .B aa_flood
 The anti\(hyaliasing flood guard described above triggered.
+.TP
+.B area_change
+The area change check described above triggered.
 .SH ENVIRONMENT
 The thresholds are tunable; the defaults were chosen on the WMS
 regression suite and should rarely need changing.
@@ -146,6 +174,29 @@ or less to disable the guard.
 Absolute floor of anti\(hyaliasing\(hyclassified pixels below which the
 fraction is not trusted (default
 .BR 1000 ).
+.TP
+.B SID_AREA_THRESHOLD
+Normalized amplitude above which a pixel counts towards an area change
+(default
+.BR 0.03 ).
+It stays above uniform palette quantization shifts.
+.TP
+.B SID_AREA_EROSION
+Erosion radius in pixels applied before clustering the area change
+pixels (default
+.BR 2 ).
+.TP
+.B SID_MAX_AREA_FRACTION
+Fraction of the image area at which a connected area change is a
+regression (default
+.BR 0.002 ,
+that is 0.2%). Set to
+.B 0
+or less to disable the check.
+.TP
+.B SID_AREA_MIN
+Absolute floor in pixels for an area change (default
+.BR 200 ).
 .SH EXIT STATUS
 .TP
 .B 0

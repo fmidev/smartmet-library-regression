@@ -42,6 +42,24 @@ struct StructuralDiffOptions
     // fraction). Set maxAaFraction <= 0 to disable.
     double maxAaFraction = 0.003;  // 0.3% of the image area
     long aaFloodMinPixels = 1000;  // absolute floor below which the fraction is not trusted
+
+    // Area change guard. Pale palettes differ by less than the base threshold
+    // (meteorological land vs sea 0.085, adjacent light isoband colours 0.099),
+    // so a recoloured isoband or a swapped background never becomes a candidate
+    // pixel, let alone a strong one. Such a change is however a large connected
+    // area, whereas rendering jitter stays a thin fringe (at most 0.15% of the
+    // frame across the WMS suite). Pixels differing by more than areaThreshold
+    // that are not anti-aliasing are clustered separately, and a cluster of at
+    // least maxAreaFraction of the image (and areaMinPixels) is a regression.
+    // areaThreshold stays above uniform palette quantization shifts (an 8 level
+    // shift is ~0.03). The pixels are eroded by areaErosion pixels before
+    // clustering, so that only solid areas count: softened or displaced edges
+    // and thin lines vanish, a recoloured area only loses its rim.
+    // Set maxAreaFraction <= 0 to disable.
+    double areaThreshold = 0.03;    // normalized amplitude for an area change pixel
+    int areaErosion = 2;            // erosion radius in pixels
+    double maxAreaFraction = 0.002;  // 0.2% of the image area
+    long areaMinPixels = 200;        // absolute floor for small images
 };
 
 struct StructuralDiffResult
@@ -56,6 +74,10 @@ struct StructuralDiffResult
     long largestClusterArea = 0;     // area of the biggest cluster
     int boxX = 0, boxY = 0, boxW = 0, boxH = 0;  // bbox of the biggest cluster
     bool aaFlood = false;            // AA-ignored pixels flooded the frame (see options)
+    long areaPixels = 0;             // non-AA pixels differing by more than areaThreshold
+    long largestArea = 0;            // area of the biggest connected cluster of them
+    int areaX = 0, areaY = 0, areaW = 0, areaH = 0;  // bbox of the biggest area cluster
+    bool areaChange = false;         // the biggest area cluster is a regression (see options)
     bool fail = false;               // verdict
 };
 

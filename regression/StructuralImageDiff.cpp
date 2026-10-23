@@ -150,28 +150,40 @@ namespace Fmi
 {
 namespace
 {
-// Classify the pixels: 0 = same, 1 = weak/AA difference, 2 = significant difference
+// Classify the pixels: 0 = same, 1 = weak/AA difference, 2 = significant difference.
+// Also marks the non-AA pixels exceeding the area change threshold in areaMask.
 std::vector<uint8_t> classifyPixels(const std::vector<uint8_t>& a,
                                     const std::vector<uint8_t>& b,
                                     std::size_t w,
                                     std::size_t h,
                                     const StructuralDiffOptions& opts,
+                                    std::vector<uint8_t>& areaMask,
                                     StructuralDiffResult& res)
 {
   const double baseSq = opts.threshold * opts.threshold;
+  const double areaSq = opts.areaThreshold * opts.areaThreshold;
+  const double minSq = std::min(baseSq, areaSq);
 
   std::vector<uint8_t> mask(w * h, 0);
+  areaMask.assign(w * h, 0);
   for (int y = 0; y < (int)h; ++y)
     for (int x = 0; x < (int)w; ++x)
     {
       const std::size_t p = (std::size_t(y) * w + x) * 4;
       const double nd = std::fabs(colorDelta(a.data(), b.data(), p, p, false)) / 35215.0;
+      if (nd <= minSq)
+        continue;
+      const bool isAA = antialiased(a.data(), x, y, w, h, b.data()) ||
+                        antialiased(b.data(), x, y, w, h, a.data());
+      if (nd > areaSq && !isAA)
+      {
+        ++res.areaPixels;
+        areaMask[std::size_t(y) * w + x] = 2;
+      }
       if (nd <= baseSq)
         continue;
       ++res.candidatePixels;
       const bool isStrong = std::sqrt(nd) >= opts.strong;
-      const bool isAA = antialiased(a.data(), x, y, w, h, b.data()) ||
-                        antialiased(b.data(), x, y, w, h, a.data());
       if (isAA)
         ++res.aaIgnoredPixels;
       mask[std::size_t(y) * w + x] = (isStrong && !isAA) ? 2 : 1;
@@ -263,6 +275,56 @@ void summarizeClusters(const std::vector<Cluster>& clusters,
   }
 }
 
+// Keep only the pixels whose whole (2r+1)x(2r+1) neighbourhood is set
+std::vector<uint8_t> erode(const std::vector<uint8_t>& mask, std::size_t w, std::size_t h, int r)
+{
+  if (r <= 0)
+    return mask;
+  // Separable erosion: first horizontally, then vertically
+  std::vector<uint8_t> tmp(w * h, 0);
+  std::vector<uint8_t> out(w * h, 0);
+  for (int y = 0; y < (int)h; ++y)
+    for (int x = r; x < (int)w - r; ++x)
+    {
+      bool all = true;
+      for (int dx = -r; dx <= r && all; ++dx)
+        all = (mask[std::size_t(y) * w + x + dx] != 0);
+      tmp[std::size_t(y) * w + x] = all ? 2 : 0;
+    }
+  for (int y = r; y < (int)h - r; ++y)
+    for (int x = 0; x < (int)w; ++x)
+    {
+      bool all = true;
+      for (int dy = -r; dy <= r && all; ++dy)
+        all = (tmp[std::size_t(y + dy) * w + x] != 0);
+      out[std::size_t(y) * w + x] = all ? 2 : 0;
+    }
+  return out;
+}
+
+// Fail on a large connected area change
+void summarizeAreas(const std::vector<Cluster>& areas,
+                    std::size_t w,
+                    std::size_t h,
+                    const StructuralDiffOptions& opts,
+                    StructuralDiffResult& res)
+{
+  if (areas.empty())
+    return;
+  const auto& c = areas.front();
+  res.largestArea = c.area;
+  res.areaX = c.minx;
+  res.areaY = c.miny;
+  res.areaW = c.maxx - c.minx + 1;
+  res.areaH = c.maxy - c.miny + 1;
+  if (opts.maxAreaFraction > 0 && c.area >= opts.areaMinPixels &&
+      c.area >= (long)(opts.maxAreaFraction * double(w) * double(h)))
+  {
+    res.areaChange = true;
+    res.fail = true;
+  }
+}
+
 // Set the overlay color of a pixel
 void setColor(std::vector<uint8_t>& out, std::size_t i, uint8_t r, uint8_t g, uint8_t b)
 {
@@ -275,7 +337,9 @@ void setColor(std::vector<uint8_t>& out, std::size_t i, uint8_t r, uint8_t g, ui
 void writeOverlay(const std::filesystem::path& overlayPath,
                   const std::vector<uint8_t>& b,
                   const std::vector<uint8_t>& mask,
+                  const std::vector<uint8_t>& areaMask,
                   const std::vector<Cluster>& clusters,
+                  const StructuralDiffResult& res,
                   std::size_t w,
                   std::size_t h,
                   const StructuralDiffOptions& opts)
@@ -290,6 +354,8 @@ void writeOverlay(const std::filesystem::path& overlayPath,
       setColor(out, i, 255, 0, 0);
     else if (mask[i] == 1)
       setColor(out, i, 190, 210, 255);
+    else if (areaMask[i] != 0 && res.areaChange)
+      setColor(out, i, 255, 190, 120);
     else
       setColor(out, i, gv, gv, gv);
     out[i * 4 + 3] = 255;
@@ -307,6 +373,14 @@ void writeOverlay(const std::filesystem::path& overlayPath,
                                         std::max(0, c.miny - 3),
                                         std::min((int)w - 1, c.maxx + 3),
                                         std::min((int)h - 1, c.maxy + 3)));
+  if (res.areaChange)
+  {
+    od.strokeColor("orange");
+    od.draw(Magick::DrawableRectangle(std::max(0, res.areaX - 3),
+                                      std::max(0, res.areaY - 3),
+                                      std::min((int)w - 1, res.areaX + res.areaW + 2),
+                                      std::min((int)h - 1, res.areaY + res.areaH + 2)));
+  }
   od.write(overlayPath.string());
 }
 
@@ -338,12 +412,16 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
   im2.write(0, 0, w, h, "RGBA", Magick::CharPixel, b.data());
 
   // mask: 0 = same, 1 = weak/AA difference, 2 = significant difference
-  const auto mask = classifyPixels(a, b, w, h, opts, res);
+  std::vector<uint8_t> areaMask;
+  const auto mask = classifyPixels(a, b, w, h, opts, areaMask, res);
 
   // 8-connected clustering of the significant pixels.
   const auto clusters = findClusters(mask, w, h);
 
   summarizeClusters(clusters, opts, res);
+
+  // 8-connected clustering of the area change pixels (see StructuralDiffOptions::maxAreaFraction)
+  summarizeAreas(findClusters(erode(areaMask, w, h, opts.areaErosion), w, h), w, h, opts, res);
 
   // Anti-aliasing flood guard: a sub-pixel geometry displacement is misread
   // pixel-by-pixel as anti-aliasing, so it never forms a "significant"
@@ -358,7 +436,7 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
   }
 
   if (overlayPath)
-    writeOverlay(*overlayPath, b, mask, clusters, w, h, opts);
+    writeOverlay(*overlayPath, b, mask, areaMask, clusters, res, w, h, opts);
 
   return res;
 }
