@@ -4,7 +4,7 @@
 %define debug_package %{nil}
 Summary: regression test library
 Name: %{SPECNAME}
-Version: 26.10.23
+Version: 26.10.24
 Release: 1%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
@@ -53,8 +53,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/smartpngdiff.1*
 
 %changelog
-* Fri Oct 23 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.23-1.fmi
+* Sat Oct 24 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.24-1.fmi
 - smartimagediff fails on large solid area changes too: pale colour changes such as a recoloured isoband or swapped land and sea colours stayed below the per-pixel thresholds
+- smartimagediff tolerates displacements of 1-2 pixels (SID_DISPLACEMENT_RADIUS=2): text rendered by other font library versions passes, a missing feature or changed colour does not. The anti-aliasing flood guard is disabled by default and the cluster limit lowered from 80 to 40 pixels
 * Mon Oct 19 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.17-2.fmi
 - Repackaged: simultaneous CI runs corrupted the 26.10.17-1 RPMs
 * Sat Oct 17 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.17-1.fmi

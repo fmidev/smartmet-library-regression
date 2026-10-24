@@ -275,6 +275,58 @@ void summarizeClusters(const std::vector<Cluster>& clusters,
   }
 }
 
+// True if the colour of img1 at (x,y) is found within radius r in img2
+bool foundNearby(const std::vector<uint8_t>& img1,
+                 const std::vector<uint8_t>& img2,
+                 int x,
+                 int y,
+                 int w,
+                 int h,
+                 int r,
+                 double tolSq)
+{
+  const std::size_t p = (std::size_t(y) * w + x) * 4;
+  for (int dy = -r; dy <= r; ++dy)
+    for (int dx = -r; dx <= r; ++dx)
+    {
+      const int nx = x + dx;
+      const int ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h)
+        continue;
+      const std::size_t q = (std::size_t(ny) * w + nx) * 4;
+      if (std::fabs(colorDelta(img1.data(), img2.data(), p, q, false)) / 35215.0 <= tolSq)
+        return true;
+    }
+  return false;
+}
+
+// Demote significant pixels explained by a small displacement of the same colours
+void tolerateDisplacement(const std::vector<uint8_t>& a,
+                          const std::vector<uint8_t>& b,
+                          std::size_t w,
+                          std::size_t h,
+                          const StructuralDiffOptions& opts,
+                          std::vector<uint8_t>& mask,
+                          StructuralDiffResult& res)
+{
+  const int r = opts.displacementRadius;
+  if (r <= 0)
+    return;
+  const double tolSq = opts.displacementTolerance * opts.displacementTolerance;
+  for (int y = 0; y < (int)h; ++y)
+    for (int x = 0; x < (int)w; ++x)
+    {
+      auto& m = mask[std::size_t(y) * w + x];
+      if (m != 2)
+        continue;
+      if (foundNearby(a, b, x, y, w, h, r, tolSq) && foundNearby(b, a, x, y, w, h, r, tolSq))
+      {
+        m = 1;
+        ++res.displacedPixels;
+      }
+    }
+}
+
 // Keep only the pixels whose whole (2r+1)x(2r+1) neighbourhood is set
 std::vector<uint8_t> erode(const std::vector<uint8_t>& mask, std::size_t w, std::size_t h, int r)
 {
@@ -413,7 +465,10 @@ StructuralDiffResult structuralImageDiff(const std::filesystem::path& image1,
 
   // mask: 0 = same, 1 = weak/AA difference, 2 = significant difference
   std::vector<uint8_t> areaMask;
-  const auto mask = classifyPixels(a, b, w, h, opts, areaMask, res);
+  auto mask = classifyPixels(a, b, w, h, opts, areaMask, res);
+
+  // Tolerate glyphs drawn slightly differently (see StructuralDiffOptions::displacementRadius)
+  tolerateDisplacement(a, b, w, h, opts, mask, res);
 
   // 8-connected clustering of the significant pixels.
   const auto clusters = findClusters(mask, w, h);

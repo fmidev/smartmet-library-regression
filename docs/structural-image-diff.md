@@ -45,8 +45,13 @@ Judge on the **geometry of the differences**, not their average:
    whereas font-hinting jitter is a small gray-vs-gray edge delta. Raising the
    bar past ~0.30 starts dropping real glyph signal too, so 0.25 is the sweet
    spot.
-4. Cluster surviving pixels (8-connectivity).
-5. **Fail iff some cluster is large enough** (`SID_FAIL_CLUSTER`, default 80 px).
+4. Tolerate displacements of 1-2 pixels (`SID_DISPLACEMENT_RADIUS`, default 2):
+   a significant pixel is dropped when the colour of each image at it is found
+   within the radius in the other image. Text drawn by another version of the
+   font libraries, or geometry shifted by a pixel, passes; a missing feature or
+   a changed colour has no counterpart nearby.
+5. Cluster surviving pixels (8-connectivity).
+6. **Fail iff some cluster is large enough** (`SID_FAIL_CLUSTER`, default 40 px).
    Rendering jitter only ever produces thin per-edge specks; a real change forms
    one solid blob.
 
@@ -67,9 +72,15 @@ Judge on the **geometry of the differences**, not their average:
 | missing map feature                        | 3700            |
 | colour regression                          | 12053           |
 
-The default cutoff of 80 sits in the gap with margin on both sides. Even a
-complete font swap (far more extreme than any RHEL8→Rocky10 difference) stays at
-10, while the smallest real change is 169 — a 16× margin.
+These were measured without the displacement tolerance and with a cutoff of 80.
+Rendering the whole WMS suite on RHEL 8 and RHEL 10 with the same fonts gives
+clusters of up to 318 pixels around text, as glyph shapes and advances differ
+between the freetype, harfbuzz and librsvg versions. With the displacement
+tolerance the largest remaining cluster between the platforms is 27 pixels and
+the largest between RHEL 8 renders months apart 31 pixels, hence the cutoff of
+40. Every RHEL 10 image of the suite then passes against the RHEL 8 expected
+images, while a missing lake fill (173 px), the pale area changes and replaced
+maps below still fail.
 
 ## Validation on the real product catalog
 
@@ -140,9 +151,9 @@ regression side.
 
 ```
 $ smartimagediff result.png expected.png overlay.png
-OK    largest_cluster=10 clusters=0 changed_px=0 aa_ignored=31713
-FAIL  largest_cluster=169 clusters=1 changed_px=169 aa_ignored=18 at=[530,501 11x17] largest_area=0
-FAIL  largest_cluster=0 clusters=0 changed_px=0 aa_ignored=0 largest_area=6159 area_at=[156,141 126x188] area_change
+OK    largest_cluster=10 clusters=0 changed_px=0 aa_ignored=31713 displaced=0 largest_area=0
+FAIL  largest_cluster=169 clusters=1 changed_px=169 aa_ignored=18 displaced=0 at=[530,501 11x17] largest_area=0
+FAIL  largest_cluster=0 clusters=0 changed_px=0 aa_ignored=0 displaced=0 largest_area=6159 area_at=[156,141 126x188] area_change
 ```
 
 Images of different sizes print `FAIL  size mismatch WxH`.
@@ -158,8 +169,10 @@ instead of an equalized full-frame of antialiasing.
 | `SID_THRESHOLD`    | 0.1     | base per-pixel sensitivity (pixelmatch)       |
 | `SID_STRONG`       | 0.25    | normalized amplitude for a "significant" pixel |
 | `SID_MIN_CLUSTER`  | 8       | clusters smaller than this counted as noise    |
-| `SID_FAIL_CLUSTER` | 80      | a cluster ≥ this is a regression               |
-| `SID_MAX_AA_FRACTION` | 0.003 | anti-aliasing flood guard: fraction of the image area (≤ 0 disables) |
+| `SID_FAIL_CLUSTER` | 40      | a cluster ≥ this is a regression               |
+| `SID_MAX_AA_FRACTION` | 0     | anti-aliasing flood guard: fraction of the image area, for example 0.003 (≤ 0 disables) |
+| `SID_DISPLACEMENT_RADIUS` | 2 | displacement tolerance: search radius in pixels (≤ 0 disables) |
+| `SID_DISPLACEMENT_TOLERANCE` | 0.1 | displacement tolerance: normalized amplitude of matching colours |
 | `SID_AA_FLOOD_MIN` | 1000    | anti-aliasing flood guard: absolute pixel floor |
 | `SID_AREA_THRESHOLD` | 0.03  | area change check: normalized amplitude of a changed pixel |
 | `SID_AREA_EROSION` | 2       | area change check: erosion radius in pixels   |
@@ -170,47 +183,26 @@ The anti-aliasing flood guard catches a thin line that moved by about one pixel
 along its whole length: such a change looks like anti-aliasing pixel by pixel.
 Genuine anti-aliasing stays a thin fringe, so when the pixels classified as
 anti-aliasing exceed both `SID_AA_FLOOD_MIN` and `SID_MAX_AA_FRACTION` of the
-image, the comparison fails and the output line ends with `aa_flood`.
+image, the comparison fails and the output line ends with `aa_flood`. The guard
+is disabled by default: displacements of 1-2 pixels must not fail the tests, and
+text rendered by other font library versions floods the anti-aliasing count just
+like a moved line. Set for example `SID_MAX_AA_FRACTION=0.003` to enable it.
 
 ## Known floor
 
 A change smaller than ~`SID_FAIL_CLUSTER` strong pixels (e.g. a single missing
-minus sign or decimal point, ~10–15 px) is indistinguishable from font jitter by
-area alone and will pass. This is strictly better than PSNR, which silently
-passes such changes too (they barely move the average). Lower `SID_FAIL_CLUSTER`
-to ~30 to catch smaller changes at the cost of less headroom against an
-unrealistically different rasterizer.
+minus sign or decimal point, ~10–15 px, or an erased digit of small text, ~30 px)
+is indistinguishable from font jitter by area alone and will pass, and so does a
+digit replaced by a similar one (5 → 6), which the displacement tolerance
+explains. This is strictly better than PSNR, which silently passes such changes
+too (they barely move the average). Test values of text in the SVG or JSON
+outputs instead.
 
 ## Integration into CompareImages.pl
 
-The WMS plugin's `test/CompareImages.pl` currently runs `smartimagediff` in
-**shadow mode**: `smartimagediff_psnr` still decides OK / WARNING / FAIL, the
-structural verdict is appended to each status line as `[sid:...]`, the overlay
-is written to `failures/<name>_overlay.png`, and lines where the two verdicts
-disagree are marked `SHADOW-DISAGREE`. The script skips the structural check
-when `smartimagediff` is not installed.
-
-To make `smartimagediff` the gate, replace the final PNG comparison block:
-
-```perl
-my $difference_str = `smartimagediff_psnr $RESULT_PNG $EXPECTED_PNG $DIFFERENCE_PNG`;
-# ...PSNR parsing, >=50 OK / >=20 WARNING / <20 FAIL...
-```
-
-with:
-
-```perl
-my $out = `smartimagediff $RESULT_PNG $EXPECTED_PNG $DIFFERENCE_PNG`;
-my $rc  = $? >> 8;
-if ($rc == 0) { print "OK     "; Cleanup(); exit(0); }
-elsif ($rc == 1) {
-    print "FAIL   $out";
-    CreateWebp("failures/${NAME}_error.webp", $EXPECTED_PNG, $RESULT_PNG);
-    exit(1);
-}
-else { die "smartimagediff error: $out"; }
-```
-
-The WARNING tier disappears: the tool decides. Keep both binaries installed
-during a transition period and compare verdicts on a real test run before
-switching the suite over.
+The WMS plugin's `test/CompareImages.pl` uses `smartimagediff` as the gate: exit
+code 0 is OK, 1 is FAIL, and the overlay is written to
+`failures/<name>_overlay.png` together with an expected/result flicker WebP.
+The PSNR of `smartimagediff_psnr` is printed for information. When
+`smartimagediff` is not installed, the script falls back to the PSNR verdict
+(>= 50 dB OK, >= 20 dB WARNING, otherwise FAIL).

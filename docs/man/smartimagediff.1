@@ -22,7 +22,7 @@ average error, and a real change may well score
 .I better
 than harmless noise.
 .PP
-The comparison proceeds in five steps:
+The comparison proceeds in six steps:
 .RS 4
 .IP 1. 4
 per\(hypixel YIQ perceptual colour delta (pixelmatch / Yee metric);
@@ -33,8 +33,12 @@ only high\(hyamplitude differences are kept \(em a dark glyph on a light
 isoband is a large colour delta, whereas font\(hyhinting jitter is a
 small gray\(hyversus\(hygray edge delta;
 .IP 4. 4
-the surviving pixels are clustered with 8\(hyconnectivity;
+displacements of 1\(en2 pixels are tolerated: a pixel is dropped when the
+colour of each image at it is found nearby in the other image, so text drawn
+by another version of the font libraries passes;
 .IP 5. 4
+the surviving pixels are clustered with 8\(hyconnectivity;
+.IP 6. 4
 the verdict is a failure if and only if some cluster is large enough.
 Rendering jitter only ever produces thin per\(hyedge specks, while a real
 change forms one solid blob.
@@ -42,7 +46,7 @@ change forms one solid blob.
 .PP
 Images of differing dimensions are always a failure.
 .PP
-As a guard against a sub\(hypixel change that the per\(hypixel detector
+Optionally, as a guard against a sub\(hypixel change that the per\(hypixel detector
 cannot distinguish from stationary anti\(hyaliasing \(em a thin line that
 moved by about one pixel along its whole length, for instance a
 simplified coastline \(em the result is also a failure when the
@@ -104,9 +108,9 @@ One line on standard output, for example:
 .PP
 .RS 4
 .nf
-OK    largest_cluster=6 clusters=2 changed_px=11 aa_ignored=843 largest_area=0
-FAIL  largest_cluster=214 clusters=3 changed_px=402 aa_ignored=915 at=[512,233 46x18] largest_area=12
-FAIL  largest_cluster=0 clusters=0 changed_px=0 aa_ignored=0 largest_area=6159 area_at=[156,141 126x188] area_change
+OK    largest_cluster=6 clusters=2 changed_px=11 aa_ignored=843 displaced=112 largest_area=0
+FAIL  largest_cluster=214 clusters=3 changed_px=402 aa_ignored=915 displaced=40 at=[512,233 46x18] largest_area=12
+FAIL  largest_cluster=0 clusters=0 changed_px=0 aa_ignored=0 displaced=0 largest_area=6159 area_at=[156,141 126x188] area_change
 FAIL  size mismatch 1024x768
 .fi
 .RE
@@ -125,6 +129,9 @@ Total number of pixels in those clusters.
 .TP
 .B aa_ignored
 Candidate pixels discarded as anti\(hyaliasing.
+.TP
+.B displaced
+Significant pixels tolerated as a displacement of 1\(en2 pixels.
 .TP
 .B at=[x,y wxh]
 Bounding box of the biggest cluster, printed when one exists.
@@ -160,15 +167,27 @@ Clusters smaller than this many pixels are counted as noise (default
 .B SID_FAIL_CLUSTER
 Any surviving cluster of at least this many pixels is a regression
 (default
-.BR 80 ).
+.BR 40 ).
 .TP
 .B SID_MAX_AA_FRACTION
 Fraction of the image area above which anti\(hyaliasing\(hyclassified
-pixels are treated as a flood (default
+pixels are treated as a flood, for example
 .BR 0.003 ,
-that is 0.3%). Set to
+that is 0.3%. The default
 .B 0
-or less to disable the guard.
+disables the guard: displacements of 1\(en2 pixels must not fail.
+.TP
+.B SID_DISPLACEMENT_RADIUS
+Radius in pixels within which a displaced colour is tolerated (default
+.BR 2 ).
+Set to
+.B 0
+to disable.
+.TP
+.B SID_DISPLACEMENT_TOLERANCE
+Normalized amplitude below which two colours match for the displacement
+tolerance (default
+.BR 0.1 ).
 .TP
 .B SID_AA_FLOOD_MIN
 Absolute floor of anti\(hyaliasing\(hyclassified pixels below which the

@@ -26,7 +26,7 @@ struct StructuralDiffOptions
     double threshold = 0.1;     // base per-pixel YIQ sensitivity (pixelmatch)
     double strong = 0.25;       // normalized amplitude for a "significant" pixel
     long minClusterArea = 8;    // clusters smaller than this are counted as noise
-    long failClusterArea = 80;  // any surviving cluster >= this -> regression
+    long failClusterArea = 40;  // any surviving cluster >= this -> regression
 
     // Anti-aliasing flood guard. The per-pixel AA detector cannot tell a
     // *stationary* softened edge (harmless cross-OS / font-hinting jitter) from
@@ -39,8 +39,10 @@ struct StructuralDiffOptions
     // image, treat it as a regression instead of passing. Requiring both avoids
     // false positives on small images (high fraction but few pixels, e.g. a
     // blurred 200x200 fixture) and on huge sparse ones (many pixels, tiny
-    // fraction). Set maxAaFraction <= 0 to disable.
-    double maxAaFraction = 0.003;  // 0.3% of the image area
+    // fraction). Disabled by default (maxAaFraction <= 0): displacements of 1-2
+    // pixels must not fail the tests, and text rendered by another version of
+    // the font libraries floods the anti-aliasing count just like a moved line.
+    double maxAaFraction = 0;      // for example 0.003, 0.3% of the image area
     long aaFloodMinPixels = 1000;  // absolute floor below which the fraction is not trusted
 
     // Area change guard. Pale palettes differ by less than the base threshold
@@ -60,6 +62,18 @@ struct StructuralDiffOptions
     int areaErosion = 2;            // erosion radius in pixels
     double maxAreaFraction = 0.002;  // 0.2% of the image area
     long areaMinPixels = 200;        // absolute floor for small images
+
+    // Displacement tolerance. Differences of 1-2 pixels must not fail the
+    // tests: font library versions differ in glyph shapes and advances, so text
+    // moves by a pixel or two and forms solid clusters, and geometry may shift
+    // by a pixel. A significant pixel is tolerated when the colour of each image
+    // at it is found within displacementRadius pixels in the other image, so a
+    // missing feature or a changed colour still forms a cluster. With radius 2
+    // the largest remaining cluster between RHEL 8 and RHEL 10 renders of the
+    // WMS suite is 27 pixels, hence failClusterArea 40.
+    // Set displacementRadius <= 0 to disable.
+    int displacementRadius = 2;      // search radius in pixels
+    double displacementTolerance = 0.1;  // normalized amplitude for matching colours
 };
 
 struct StructuralDiffResult
@@ -78,6 +92,7 @@ struct StructuralDiffResult
     long largestArea = 0;            // area of the biggest connected cluster of them
     int areaX = 0, areaY = 0, areaW = 0, areaH = 0;  // bbox of the biggest area cluster
     bool areaChange = false;         // the biggest area cluster is a regression (see options)
+    long displacedPixels = 0;        // significant pixels tolerated as displacement
     bool fail = false;               // verdict
 };
 

@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -264,14 +265,14 @@ void test_cluster_boundary()
 {
     {
         auto base = writeScene("cb1_base.png");
-        auto mod = sceneWithBlock("cb1_mod.png", 130, 130, 136, 136);  // 7x7 = 49 < 80
+        auto mod = sceneWithBlock("cb1_mod.png", 130, 130, 134, 134);  // 5x5 = 25 < 40
         auto r = Fmi::structuralImageDiff(mod, base);
         if (r.fail)
-            TEST_FAILED("sub-threshold cluster (~49 px) was wrongly flagged");
+            TEST_FAILED("sub-threshold cluster (~25 px) was wrongly flagged");
     }
     {
         auto base = writeScene("cb2_base.png");
-        auto mod = sceneWithBlock("cb2_mod.png", 130, 130, 141, 141);  // 12x12 = 144 > 80
+        auto mod = sceneWithBlock("cb2_mod.png", 130, 130, 141, 141);  // 12x12 = 144 > 40
         auto r = Fmi::structuralImageDiff(mod, base);
         if (!r.fail)
             TEST_FAILED("above-threshold cluster (~144 px) was not flagged");
@@ -302,7 +303,11 @@ void test_aa_flood_caught()
     auto base = lines("flood_base.png", 0);
     auto shifted = lines("flood_shift.png", 1);  // whole field displaced by 1px
 
-    auto r = Fmi::structuralImageDiff(shifted, base);
+    // The guard and the displacement tolerance are opposites, the guard is off by default
+    Fmi::StructuralDiffOptions opts;
+    opts.maxAaFraction = 0.003;
+    opts.displacementRadius = 0;
+    auto r = Fmi::structuralImageDiff(shifted, base, std::nullopt, opts);
     if (r.aaIgnoredPixels == 0)
         TEST_FAILED("shifted line field produced no anti-aliasing pixels (fixture too weak)");
     if (!r.aaFlood)
@@ -324,12 +329,55 @@ void test_aa_flood_not_tripped_by_blur()
     auto bp = P("flood_aa_blur.png");
     blurred.write(bp.string());
 
-    auto r = Fmi::structuralImageDiff(bp, base);
+    Fmi::StructuralDiffOptions opts;
+    opts.maxAaFraction = 0.003;
+    auto r = Fmi::structuralImageDiff(bp, base, std::nullopt, opts);
     if (r.aaFlood)
         TEST_FAILED("localized blur wrongly tripped the AA-flood guard (aa_ignored=" +
                     std::to_string(r.aaIgnoredPixels) + ")");
     if (r.fail)
         TEST_FAILED("localized blur was flagged as a regression");
+    TEST_PASSED();
+}
+
+// Differences of 1-2 pixels must not fail: the same line field displaced by
+// one pixel, and a block moved by two pixels, pass with the default options.
+void test_small_displacement_tolerated()
+{
+    auto lines = [](const std::string& name, int dx) {
+        Magick::Image img(Magick::Geometry(400, 400), Magick::Color("white"));
+        img.strokeAntiAlias(true);
+        img.strokeColor(Magick::Color("black"));
+        img.strokeWidth(1);
+        for (int i = -400; i < 400; i += 12)
+            img.draw(Magick::DrawableLine(i + dx, 0, i + dx + 400, 399));
+        auto p = P(name);
+        img.write(p.string());
+        return p;
+    };
+    auto r1 = Fmi::structuralImageDiff(lines("sd_shift.png", 1), lines("sd_base.png", 0));
+    if (r1.fail)
+        TEST_FAILED("a line field displaced by 1px was flagged (largest_cluster=" +
+                    std::to_string(r1.largestClusterArea) + ")");
+
+    auto base = sceneWithBlock("sd_block.png", 130, 130, 160, 160);
+    auto moved = sceneWithBlock("sd_block2.png", 132, 132, 162, 162);
+    auto r2 = Fmi::structuralImageDiff(moved, base);
+    if (r2.fail)
+        TEST_FAILED("a block moved by 2px was flagged (largest_cluster=" +
+                    std::to_string(r2.largestClusterArea) + ")");
+    TEST_PASSED();
+}
+
+// A larger displacement is a change: the same block moved by 6 pixels fails.
+void test_large_displacement_caught()
+{
+    auto base = sceneWithBlock("ld_block.png", 130, 130, 160, 160);
+    auto moved = sceneWithBlock("ld_block2.png", 136, 136, 166, 166);
+    auto r = Fmi::structuralImageDiff(moved, base);
+    if (!r.fail)
+        TEST_FAILED("a block moved by 6px was not caught (largest_cluster=" +
+                    std::to_string(r.largestClusterArea) + ")");
     TEST_PASSED();
 }
 
@@ -353,6 +401,8 @@ class StructuralImageDiffTests : public tframe::tests
         TEST(test_cluster_boundary);
         TEST(test_aa_flood_caught);
         TEST(test_aa_flood_not_tripped_by_blur);
+        TEST(test_small_displacement_tolerated);
+        TEST(test_large_displacement_caught);
     }
 };
 
