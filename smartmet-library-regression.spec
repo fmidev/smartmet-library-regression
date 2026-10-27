@@ -4,7 +4,7 @@
 %define debug_package %{nil}
 Summary: regression test library
 Name: %{SPECNAME}
-Version: 26.9.3
+Version: 26.10.24
 Release: 1%{?dist}.fmi
 License: MIT
 Group: Development/Libraries
@@ -53,6 +53,20 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/smartpngdiff.1*
 
 %changelog
+* Sat Oct 24 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.24-1.fmi
+- smartimagediff fails on large solid area changes too: pale colour changes such as a recoloured isoband or swapped land and sea colours stayed below the per-pixel thresholds
+- smartimagediff tolerates displacements of 1-2 pixels (SID_DISPLACEMENT_RADIUS=2): text rendered by other font library versions passes, a missing feature or changed colour does not. The anti-aliasing flood guard is disabled by default and the cluster limit lowered from 80 to 40 pixels
+* Mon Oct 19 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.17-2.fmi
+- Repackaged: simultaneous CI runs corrupted the 26.10.17-1 RPMs
+* Sat Oct 17 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.17-1.fmi
+- Split functions with a cognitive complexity above 25 into smaller helpers, no functional changes
+
+* Fri Oct 16 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.16-1.fmi
+- Fixed compiler warnings and clang-tidy findings (unused code, unreachable code, empty statements, member initialization, parameter passing, noexcept), no functional changes
+
+* Sat Oct 03 2026 Mika Heiskanen <mika.heiskanen@fmi.fi> - 26.10.3-1.fmi
+- Fail tframe runs with tests that lack an ending macro
+
 * Thu Sep  3 2026 Andris Pavēnis <andris.pavenis@fmi.fi> 26.9.3-1.fmi
 - Add man files
 
