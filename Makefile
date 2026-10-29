@@ -5,7 +5,7 @@ INCDIR = smartmet/$(SUBNAME)
 
 REQUIRES = filesystem
 
-include $(shell smartbuildcfg --prefix)/share/smartmet/devel/makefile.inc
+include $(or $(PREFIX),$(shell smartbuildcfg --prefix))/share/smartmet/devel/makefile.inc
 
 mandir ?= $(PREFIX)/share/man
 
