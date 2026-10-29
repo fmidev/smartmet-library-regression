@@ -5,7 +5,7 @@ INCDIR = smartmet/$(SUBNAME)
 
 REQUIRES = filesystem
 
-include $(shell smartbuildcfg --prefix)/share/smartmet/devel/makefile.inc
+include $(or $(PREFIX),$(shell smartbuildcfg --prefix))/share/smartmet/devel/makefile.inc
 
 mandir ?= $(PREFIX)/share/man
 
@@ -43,7 +43,7 @@ $(LIBFILE): $(OBJS)
 	fi
 
 $(PROGS): %: main/%.cpp $(LIBFILE)
-	$(CXX) $(CFLAGS) $(INCLUDES) -o $@ $< -L. -l$(LIB) $(REQUIRED_LIBS) '-Wl,-rpath,$$ORIGIN' $(MAGICK_LIBS)
+	$(CXX) $(CFLAGS) $(INCLUDES) -o $@ $< -L. -l$(LIB) $(REQUIRED_LIBS) '-Wl,-rpath,$(libdir)' $(MAGICK_LIBS)
 
 clean:
 	rm -f *~ source/*~ include/*~ $(LIBFILE) $(PROGS)
