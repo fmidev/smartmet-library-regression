@@ -8,7 +8,7 @@ using namespace Fmi;
 
 namespace
 {
-    // Enchance contrast local differences
+    // Enhance contrast local differences
     void enhanceLocalDifferences(Magick::Image& image)
     {
         image.equalize();
